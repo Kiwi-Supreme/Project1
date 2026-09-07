@@ -1,0 +1,10 @@
+runs/
+engine_cpp/md_engine
+engine_cpp/md_engine.exe
+engine_cpp/*.o
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Internal handoff notes -- kept local, not published
+PROJECT_CONTEXT.md

@@ -1,0 +1,200 @@
+/* style.css
+   Layout for the molecular dynamics interface: a fixed left column of
+   tool panels, a large viewport on the right, and a message log along
+   the bottom -- the arrangement used by desktop molecular viewers.
+
+   Deliberately plain: system fonts, flat grey panels, square corners, no
+   shadows, no animation. Everything on screen is a control or a readout.
+   Still plain CSS, no framework and no build step. */
+
+:root {
+  --chrome: #efefef;          /* window background */
+  --panel: #f6f6f6;           /* panel body */
+  --panel-head: #dedede;      /* panel title strip */
+  --border: #b4b4b4;
+  --border-soft: #cccccc;
+  --text: #1c1c1c;
+  --text-dim: #5a5a5a;
+  --text-faint: #838383;
+  --btn: #e6e6e6;
+  --btn-hover: #dcdcdc;
+  --btn-down: #cbcbcb;
+  --accent: #2a78d6;          /* selection only -- not decoration */
+  --field: #ffffff;
+
+  /* The viewport and the plot share one dark surface. The three energy
+     series below are the first three slots of a categorical palette that
+     was checked for colour-vision separation against this exact
+     background -- they are not picked by eye. */
+  --view-bg: #141414;
+  --view-line: #2e2e2e;
+  --view-text: #b9b9b9;
+  --view-faint: #7d7d7d;
+  --series-pe: #3987e5;       /* potential */
+  --series-ke: #d95926;       /* kinetic   */
+  --series-total: #199e70;    /* total     */
+
+  --mono: ui-monospace, "Consolas", "DejaVu Sans Mono", monospace;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%; overflow: hidden;
+  background: var(--chrome); color: var(--text);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 12.5px; line-height: 1.35;
+}
+
+/* ---------- window frame ---------- */
+
+.app {
+  display: grid;
+  grid-template-columns: 296px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+}
+
+.titlebar {
+  grid-column: 1 / -1;
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding: 6px 10px;
+  background: var(--panel-head);
+  border-bottom: 1px solid var(--border);
+}
+.titlebar h1 { font-size: 13px; font-weight: 600; margin: 0; }
+.titlebar .sub { font-size: 11.5px; color: var(--text-dim); }
+.titlebar .credit { margin-left: auto; font-size: 11px; color: var(--text-faint); }
+
+.sidebar {
+  overflow-y: auto; overflow-x: hidden;
+  border-right: 1px solid var(--border);
+  background: var(--chrome);
+  padding-bottom: 8px;
+}
+
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+/* ---------- panels ---------- */
+
+.panel { border: 1px solid var(--border); background: var(--panel); margin: 6px; }
+.panel > h2 {
+  margin: 0; padding: 3px 7px;
+  font-size: 11px; font-weight: 600; letter-spacing: .01em;
+  background: var(--panel-head); border-bottom: 1px solid var(--border);
+}
+.panel-body { padding: 7px 8px 8px; }
+.panel-body > *:last-child { margin-bottom: 0; }
+
+.hint { font-size: 10.5px; color: var(--text-faint); margin: 5px 0 0; }
+
+/* ---------- controls ---------- */
+
+.ctl { margin-bottom: 8px; }
+.ctl-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ctl-top label { font-size: 11.5px; color: var(--text-dim); }
+.ctl-top .val {
+  font-family: var(--mono); font-size: 11.5px; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.ctl input[type="range"] { width: 100%; margin: 2px 0 0; height: 15px; accent-color: var(--accent); }
+.ctl[hidden] { display: none; }
+
+.choice { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-bottom: 8px; }
+.choice > span.choice-label { flex: 0 0 100%; font-size: 11.5px; color: var(--text-dim); margin-bottom: 1px; }
+.choice label { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; cursor: pointer; }
+.choice input { margin: 0; accent-color: var(--accent); }
+
+.checklist {
+  border: 1px solid var(--border-soft); background: var(--field);
+  padding: 3px 4px; max-height: 168px; overflow-y: auto;
+}
+.checklist label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; padding: 2px 3px; cursor: pointer;
+}
+.checklist label:hover { background: #eef4fb; }
+.checklist input { margin: 0; accent-color: var(--accent); }
+
+textarea {
+  width: 100%; min-height: 78px; resize: vertical;
+  font-family: inherit; font-size: 12px; line-height: 1.4;
+  padding: 5px 6px; border: 1px solid var(--border-soft); background: var(--field); color: var(--text);
+}
+textarea:focus-visible, input:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: -1px;
+}
+
+button {
+  font-family: inherit; font-size: 11.5px; padding: 4px 10px;
+  border: 1px solid var(--border); background: var(--btn); color: var(--text); cursor: pointer;
+}
+button:hover:not(:disabled) { background: var(--btn-hover); }
+button:active:not(:disabled) { background: var(--btn-down); }
+button:disabled { color: var(--text-faint); cursor: default; }
+button.wide { display: block; width: 100%; padding: 6px 10px; font-weight: 600; }
+.button-row { display: flex; gap: 6px; }
+.button-row button { flex: 1; }
+
+/* ---------- viewport ---------- */
+
+.tabstrip {
+  display: flex; align-items: flex-end; gap: 2px;
+  padding: 4px 6px 0; background: var(--chrome); border-bottom: 1px solid var(--border);
+}
+.tab {
+  font-size: 11.5px; padding: 3px 14px;
+  border: 1px solid var(--border); border-bottom: none; background: var(--btn); color: var(--text-dim);
+  cursor: pointer;
+}
+.tab[aria-selected="true"] { background: var(--view-bg); color: #ffffff; border-color: var(--border); }
+
+.viewstack { flex: 1; position: relative; min-height: 0; background: var(--view-bg); }
+.view { position: absolute; inset: 0; }
+.view[hidden] { display: none; }
+.view canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+#view-3d canvas { cursor: grab; }
+#view-3d canvas:active { cursor: grabbing; }
+
+.readout {
+  display: flex; flex-wrap: wrap; gap: 4px 18px;
+  padding: 4px 9px; background: #1c1c1c; border-top: 1px solid var(--view-line);
+  font-family: var(--mono); font-size: 11px; color: var(--view-text);
+  font-variant-numeric: tabular-nums;
+}
+.readout .k { color: var(--view-faint); }
+
+/* the speed ramp legend, drawn as a real gradient bar */
+.ramp { display: flex; align-items: center; gap: 5px; }
+.ramp .bar {
+  width: 74px; height: 8px; border: 1px solid #3a3a3a;
+  background: linear-gradient(to right, #16457f, #2a72c4, #6fa9e8, #cfe6ff);
+}
+
+.messages { border-top: 1px solid var(--border); background: var(--panel); }
+.messages h2 {
+  margin: 0; padding: 2px 8px; font-size: 11px; font-weight: 600;
+  background: var(--panel-head); border-bottom: 1px solid var(--border);
+}
+#message-log {
+  height: 92px; overflow-y: auto; margin: 0; padding: 4px 8px;
+  font-family: var(--mono); font-size: 11px; line-height: 1.5; color: var(--text-dim);
+  white-space: pre-wrap; word-break: break-word;
+}
+#message-log .err { color: #b3261e; }
+#message-log .ok { color: #146c43; }
+
+/* ---------- validation strip ---------- */
+
+.status {
+  font-size: 11px; padding: 4px 6px; border: 1px solid var(--border-soft);
+  background: #ffffff; color: var(--text-dim);
+}
+.status.bad { border-color: #d9a19c; background: #fdf1f0; color: #9c2c22; }
+.status.good { border-color: #a9cdb4; background: #f0f8f2; color: #1f6b3a; }
+.status ul { margin: 3px 0 0; padding-left: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: .001ms !important; animation-duration: .001ms !important; }
+}

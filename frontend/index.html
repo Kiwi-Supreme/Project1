@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Molecular Dynamics Simulation</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+
+  <div class="titlebar">
+    <h1>Molecular Dynamics Simulation</h1>
+    <span class="sub">Local — the text is read and the physics is computed on this machine. No internet connection is used.</span>
+    <span class="credit">Shivani Srivastava · 23BDS0085 · BCSE497J Project-I</span>
+  </div>
+
+  <!-- ===================== LEFT TOOL COLUMN ===================== -->
+  <div class="sidebar">
+
+    <!-- ---------- 1. the text the whole run is built from ---------- -->
+    <section class="panel">
+      <h2>Description</h2>
+      <div class="panel-body">
+        <textarea id="f-text" spellcheck="false">Simulate 250 particles inside a box as a liquid for 3 time units.</textarea>
+        <button class="wide" id="read-run-btn" style="margin-top:6px;">Read Text &amp; Run Simulation</button>
+        <p class="hint">The sentence is read by a local rule-based parser. Everything it understood is listed in Messages below, and loaded into the controls underneath — where it can be changed.</p>
+      </div>
+    </section>
+
+    <!-- ---------- 2. the parameters, all adjustable ---------- -->
+    <section class="panel">
+      <h2>Simulation</h2>
+      <div class="panel-body">
+
+        <div class="choice" id="model-choice">
+          <span class="choice-label">Interaction model</span>
+          <label><input type="radio" name="model" value="lennard_jones" checked> Lennard-Jones</label>
+          <label><input type="radio" name="model" value="hard_sphere"> Hard-Sphere</label>
+        </div>
+
+        <div class="choice" id="state-choice">
+          <span class="choice-label">State of matter</span>
+          <label><input type="radio" name="state" value="solid"> Solid</label>
+          <label><input type="radio" name="state" value="liquid" checked> Liquid</label>
+          <label><input type="radio" name="state" value="gas"> Gas</label>
+        </div>
+
+        <div class="choice" id="boundary-choice">
+          <span class="choice-label">Boundary</span>
+          <label><input type="radio" name="boundary" value="periodic"> Periodic</label>
+          <label><input type="radio" name="boundary" value="cuboid" checked> Cuboid</label>
+          <label><input type="radio" name="boundary" value="sphere"> Sphere</label>
+        </div>
+
+        <div class="ctl" data-ctl="particle_count">
+          <div class="ctl-top"><label for="s-n">Particles</label><span class="val" id="v-n">250</span></div>
+          <input type="range" id="s-n" min="1" max="500" step="1" value="250">
+        </div>
+
+        <div class="ctl" data-ctl="density" data-model="lennard_jones">
+          <div class="ctl-top"><label for="s-density">Density &rho;*</label><span class="val" id="v-density">0.80</span></div>
+          <input type="range" id="s-density" min="0.05" max="1.20" step="0.01" value="0.80">
+        </div>
+
+        <div class="ctl" data-ctl="temperature" data-model="lennard_jones">
+          <div class="ctl-top"><label for="s-temp">Temperature T*</label><span class="val" id="v-temp">1.00</span></div>
+          <input type="range" id="s-temp" min="0.05" max="5.00" step="0.05" value="1.00">
+        </div>
+
+        <div class="ctl" data-ctl="particle_speed" data-model="hard_sphere" hidden>
+          <div class="ctl-top"><label for="s-speed">Particle speed v*</label><span class="val" id="v-speed">1.20</span></div>
+          <input type="range" id="s-speed" min="0.05" max="5.00" step="0.05" value="1.20">
+        </div>
+
+        <div class="ctl" data-ctl="container_size">
+          <div class="ctl-top"><label for="s-size">Container size L</label><span class="val" id="v-size">10.0</span></div>
+          <input type="range" id="s-size" min="2" max="40" step="0.5" value="10">
+        </div>
+
+        <div class="ctl" data-ctl="timestep">
+          <div class="ctl-top"><label for="s-dt">Timestep dt</label><span class="val" id="v-dt">0.0010</span></div>
+          <input type="range" id="s-dt" min="0.0001" max="0.0050" step="0.0001" value="0.0010">
+        </div>
+
+        <div class="ctl" data-ctl="total_time">
+          <div class="ctl-top"><label for="s-tmax">Run length t</label><span class="val" id="v-tmax">3.0</span></div>
+          <input type="range" id="s-tmax" min="0.1" max="20" step="0.1" value="3.0">
+        </div>
+
+        <div class="choice" style="margin-bottom:6px;">
+          <label><input type="checkbox" id="auto-rerun" checked> Re-run automatically when a slider changes</label>
+        </div>
+
+        <div class="status" id="validate-status">Checking…</div>
+      </div>
+    </section>
+
+    <!-- ---------- 3. camera and playback ---------- -->
+    <section class="panel">
+      <h2>View</h2>
+      <div class="panel-body">
+
+        <div class="ctl">
+          <div class="ctl-top"><label for="s-yaw">Y rotation</label><span class="val" id="v-yaw">32&deg;</span></div>
+          <input type="range" id="s-yaw" min="-180" max="180" step="1" value="32">
+        </div>
+        <div class="ctl">
+          <div class="ctl-top"><label for="s-pitch">X rotation</label><span class="val" id="v-pitch">18&deg;</span></div>
+          <input type="range" id="s-pitch" min="-75" max="75" step="1" value="18">
+        </div>
+        <div class="ctl">
+          <div class="ctl-top"><label for="s-zoom">Zoom</label><span class="val" id="v-zoom">5.5</span></div>
+          <input type="range" id="s-zoom" min="2" max="14" step="0.1" value="5.5">
+        </div>
+
+        <div class="choice">
+          <label><input type="checkbox" id="autorotate"> Auto-rotate</label>
+        </div>
+        <div class="button-row" style="margin-bottom:9px;">
+          <button id="reset-view-btn">Reset View</button>
+        </div>
+
+        <div class="ctl">
+          <div class="ctl-top"><label for="s-frame">Frame</label><span class="val" id="v-frame">0 / 0</span></div>
+          <input type="range" id="s-frame" min="0" max="0" step="1" value="0">
+        </div>
+        <div class="ctl">
+          <div class="ctl-top"><label for="s-playspeed">Playback speed</label><span class="val" id="v-playspeed">1.0&times;</span></div>
+          <input type="range" id="s-playspeed" min="0.25" max="4" step="0.25" value="1">
+        </div>
+        <div class="button-row">
+          <button id="play-btn">Pause</button>
+          <button id="restart-btn">Restart</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 4. what gets drawn ---------- -->
+    <section class="panel">
+      <h2>Display Types</h2>
+      <div class="panel-body">
+        <div class="checklist" id="display-types">
+          <label><input type="checkbox" data-show="balls" checked> Ball</label>
+          <label><input type="checkbox" data-show="bonds" checked> Bond</label>
+          <label><input type="checkbox" data-show="speed" checked> Speed Colour</label>
+          <label><input type="checkbox" data-show="container" checked> Container</label>
+          <label><input type="checkbox" data-show="grid" checked> Floor Grid</label>
+          <label><input type="checkbox" data-show="axes" checked> Axes</label>
+          <label><input type="checkbox" data-show="depth"> Depth Fade</label>
+        </div>
+
+        <div class="ctl" style="margin-top:8px;">
+          <div class="ctl-top"><label for="s-psize">Ball size</label><span class="val" id="v-psize">0.6&times;</span></div>
+          <input type="range" id="s-psize" min="0.2" max="1.5" step="0.05" value="0.55">
+        </div>
+        <div class="ctl">
+          <div class="ctl-top"><label for="s-bond">Bond cut-off</label><span class="val" id="v-bond">1.35&sigma;</span></div>
+          <input type="range" id="s-bond" min="1.0" max="2.0" step="0.05" value="1.35">
+        </div>
+        <p class="hint">Ball size 1.0&times; draws each particle at its true radius (0.5&sigma;); smaller values expose the bonds underneath. A bond is drawn between any two particles closer than the cut-off. A solid shows a connected lattice, a liquid a dense shifting cluster, a gas almost none.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Run</h2>
+      <div class="panel-body">
+        <button class="wide" id="run-btn">Run Simulation</button>
+        <div class="button-row" style="margin-top:6px;">
+          <button id="reset-params-btn">Reset Values</button>
+          <button id="clear-log-btn">Clear Messages</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ===================== VIEWPORT ===================== -->
+  <div class="main">
+
+    <div class="tabstrip" role="tablist">
+      <button class="tab" id="tab-3d" role="tab" aria-selected="true" aria-controls="view-3d">View 1</button>
+      <button class="tab" id="tab-energy" role="tab" aria-selected="false" aria-controls="view-energy">Energy</button>
+    </div>
+
+    <div class="viewstack">
+      <div class="view" id="view-3d"><canvas id="particle-canvas"></canvas></div>
+      <div class="view" id="view-energy" hidden><canvas id="energy-canvas"></canvas></div>
+    </div>
+
+    <div class="readout" id="readout">
+      <span><span class="k">state</span> <b id="ro-state">—</b></span>
+      <span><span class="k">particles</span> <b id="ro-n">—</b></span>
+      <span><span class="k">frame</span> <b id="ro-frame">0 / 0</b></span>
+      <span><span class="k">mean neighbours</span> <b id="ro-neigh">—</b></span>
+      <span><span class="k">mean speed</span> <b id="ro-speed">—</b></span>
+      <span class="ramp"><span class="k">slow</span><span class="bar"></span><span class="k">fast</span></span>
+    </div>
+
+    <div class="messages">
+      <h2>Messages</h2>
+      <div id="message-log"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/scene3d.js"></script>
+<script src="js/trajectoryPlayer.js"></script>
+<script src="js/energyChart.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

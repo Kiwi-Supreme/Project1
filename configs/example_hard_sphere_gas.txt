@@ -1,0 +1,11 @@
+model=hard_sphere
+state=gas
+container_enabled=true
+container_shape=cuboid
+particle_count=150
+container_size=10.0
+particle_speed=2.0
+timestep=0.001
+total_time=2.0
+sigma=1.0
+output_dir=.

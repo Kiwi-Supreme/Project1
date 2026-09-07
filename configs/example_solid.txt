@@ -1,0 +1,11 @@
+model=lennard_jones
+state=solid
+container_enabled=true
+container_shape=cuboid
+particle_count=200
+container_size=10.0
+density=1.0
+temperature=0.2
+timestep=0.001
+total_time=2.0
+output_dir=.

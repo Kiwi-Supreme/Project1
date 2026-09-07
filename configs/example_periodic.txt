@@ -1,0 +1,9 @@
+model=lennard_jones
+state=liquid
+container_enabled=false
+particle_count=200
+density=0.8
+temperature=1.0
+timestep=0.001
+total_time=2.0
+output_dir=.

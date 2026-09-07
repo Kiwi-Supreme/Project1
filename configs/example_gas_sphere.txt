@@ -1,0 +1,11 @@
+model=lennard_jones
+state=gas
+container_enabled=true
+container_shape=sphere
+particle_count=150
+container_size=12.0
+density=0.2
+temperature=2.5
+timestep=0.001
+total_time=2.0
+output_dir=.
