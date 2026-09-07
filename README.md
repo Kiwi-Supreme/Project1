@@ -71,21 +71,26 @@ engine_cpp/                 The actual simulation. C++, compiled once, reused fo
   build.sh                    Compiles everything into ./md_engine.
 
 configs/                    Example "key=value" config files you can run by hand.
-tests/                      pytest suite (validation, extractor, and an engine smoke test).
+tests/                      pytest suite -- 35 tests covering validation, extraction, and
+                             the compiled engine (states of matter, energy conservation,
+                             reproducibility).
+deliverables/               The Review-2 report and presentation, plus the matplotlib
+                             scripts that generate every figure in them.
 runs/                       Created at runtime -- one folder per simulation request.
 ```
 
 **The flow, end to end:**
 
 ```
-User input (form or sentence)
+User types a description, or moves a slider
         |
         v
-POST /api/extract  (only for the natural-language path)  --> nlp/extractor.py
+POST /api/extract   (description only)   --> nlp/extractor.py
         |
         v
 POST /api/validate / POST /api/simulate  --> validation/schema.py
-        |                                      (same validator, both paths)
+        |                                      (one validator, whichever the
+        |                                       values came from)
         v
 engine/runner.py writes config.txt, runs engine_cpp/md_engine
         |
@@ -171,10 +176,11 @@ It supports two interaction models:
 
 - **Lennard-Jones** — the standard MD potential (attraction at medium range, repulsion at
   short range), integrated with velocity-Verlet. This is a direct continuation of the
-  hand-written, hand-debugged C++ code from the [2024 summer internship at IIT Bombay]
-  (`old_references/Summer work 2024 report.pdf`) -- the force calculation and lattice
-  initialization are the same proven physics, refactored to take runtime parameters
-  instead of hardcoded constants, with container/state-of-matter support added.
+  hand-written, hand-debugged C++ code written during a 2024 summer internship at IIT
+  Bombay (that internship's report is not part of this repository) -- the force
+  calculation and lattice initialization are the same proven physics, refactored to take
+  runtime parameters instead of hardcoded constants, with container/state-of-matter
+  support added.
 - **Hard-Sphere** — rigid spheres with no potential energy, moving in straight lines and
   bouncing elastically off each other and the walls. Simpler than Lennard-Jones (no
   pairwise force calculation), and its total energy is *exactly* conserved by the
@@ -237,7 +243,7 @@ checks this directly (total energy drift under 0.5 reduced units over a full run
   density-derived box when periodic) -- otherwise a particle could interact with its own
   periodic or reflected image, which would silently double-count forces.
 
-Both the manual form and the natural-language path go through this exact function, via
+Both the typed description and the sliders go through this exact function, via
 `/api/validate` (checked live as a slider moves) and again inside
 `/api/simulate` (so nothing invalid ever reaches the engine, even if the frontend check
 was skipped).
@@ -278,14 +284,16 @@ python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
 # http://localhost:8000
 ```
 
-Running the tests:
+Running the tests -- 35 of them, all passing:
 
 ```bash
 python -m pip install pytest
 python -m pytest tests/
 ```
 
-(`tests/test_engine_smoke.py` is skipped automatically if the engine hasn't been built yet.)
+(`tests/test_engine_smoke.py` is skipped automatically if the engine hasn't been built
+yet. Those tests pin the engine's random seed, so a run that passes once passes every
+time -- without that, the starting arrangement is randomised and results vary run to run.)
 
 ## 9. Current CPU implementation
 
@@ -301,8 +309,8 @@ contained change, not a rewrite:
 
 - `forces.cpp`'s `compute_lj_forces()` is the one O(N²) hotspot -- exactly the function
   that would become a CUDA kernel (per-particle force accumulation is embarrassingly
-  parallel, one thread per particle, the same structure attempted in the
-  [2024 internship's CUDA port](old_references/Summer work 2024 report.pdf)).
+  parallel, one thread per particle, the same structure attempted in the 2024
+  internship's CUDA port).
 - `boundary.cpp` and `integrator.cpp` are both already per-particle, independent
   operations -- also natural CUDA kernels.
 - `main.cpp` only orchestrates *which* function runs each step; swapping the CPU
@@ -316,5 +324,3 @@ contained change, not a rewrite:
   drop-in replacement, which is why it's future work rather than part of this prototype.
 
 No GPU or CUDA toolkit is required to build, run, or demonstrate this project today.
-#   P r o j e c t 1  
- 
