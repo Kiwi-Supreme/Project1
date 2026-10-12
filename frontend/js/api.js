@@ -16,7 +16,7 @@ const API = {
     const data = await res.json();
     // params is what the parser understood; notes is its line-by-line
     // account of how it got there, which the Messages panel prints.
-    return { params: data.params, notes: data.notes || [] };
+    return { params: data.params, notes: data.notes || [], extras: data.extras || null, questions: data.questions || [] };
   },
 
   async validateParameters(params) {
@@ -26,7 +26,7 @@ const API = {
       body: JSON.stringify(params),
     });
     const data = await res.json();
-    return { valid: res.ok && data.valid, errors: data.errors || [], params: data.params };
+    return { valid: res.ok && data.valid, errors: data.errors || [], warnings: data.warnings || [], params: data.params };
   },
 
   async runSimulation(params) {
@@ -40,6 +40,6 @@ const API = {
       const message = (data.errors && data.errors.join(" ")) || data.error || "Simulation failed.";
       throw new Error(message);
     }
-    return data; // { params, trajectory, energy, run_seconds }
+    return data; // { params, trajectory, energy, run_seconds, report, properties }
   },
 };

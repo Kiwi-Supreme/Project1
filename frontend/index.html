@@ -24,7 +24,7 @@
       <div class="panel-body">
         <textarea id="f-text" spellcheck="false">Simulate 250 particles inside a box as a liquid for 3 time units.</textarea>
         <button class="wide" id="read-run-btn" style="margin-top:6px;">Read Text &amp; Run Simulation</button>
-        <p class="hint">The sentence is read by a local rule-based parser. Everything it understood is listed in Messages below, and loaded into the controls underneath — where it can be changed.</p>
+        <p class="hint">The sentence is read locally and the substances in it are looked up in the chemical knowledge base. Everything it understood is listed in Messages below, and loaded into the controls underneath — where it can be changed.</p>
       </div>
     </section>
 
@@ -60,22 +60,22 @@
 
         <div class="ctl" data-ctl="density" data-model="lennard_jones">
           <div class="ctl-top"><label for="s-density">Density &rho;*</label><span class="val" id="v-density">0.80</span></div>
-          <input type="range" id="s-density" min="0.05" max="1.20" step="0.01" value="0.80">
+          <input type="range" id="s-density" min="-4" max="0.08" step="0.01" value="-0.1">
         </div>
 
         <div class="ctl" data-ctl="temperature" data-model="lennard_jones">
           <div class="ctl-top"><label for="s-temp">Temperature T*</label><span class="val" id="v-temp">1.00</span></div>
-          <input type="range" id="s-temp" min="0.05" max="5.00" step="0.05" value="1.00">
+          <input type="range" id="s-temp" min="0.05" max="200" step="0.05" value="1.00">
         </div>
 
         <div class="ctl" data-ctl="particle_speed" data-model="hard_sphere" hidden>
           <div class="ctl-top"><label for="s-speed">Particle speed v*</label><span class="val" id="v-speed">1.20</span></div>
-          <input type="range" id="s-speed" min="0.05" max="5.00" step="0.05" value="1.20">
+          <input type="range" id="s-speed" min="0.05" max="20" step="0.05" value="1.20">
         </div>
 
         <div class="ctl" data-ctl="container_size">
           <div class="ctl-top"><label for="s-size">Container size L</label><span class="val" id="v-size">10.0</span></div>
-          <input type="range" id="s-size" min="2" max="40" step="0.5" value="10">
+          <input type="range" id="s-size" min="2" max="300" step="0.5" value="10">
         </div>
 
         <div class="ctl" data-ctl="timestep">

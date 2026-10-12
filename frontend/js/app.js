@@ -30,7 +30,9 @@
   // interface means adding one row here and one block of markup.
   const SLIDERS = {
     particle_count: { input: "s-n", out: "v-n", read: (v) => parseInt(v, 10), show: (v) => String(v) },
-    density:        { input: "s-density", out: "v-density", read: parseFloat, show: (v) => v.toFixed(2) },
+    // density spans four orders of magnitude (a dilute gas to a dense liquid), so the slider runs on log10(rho*)
+    density:        { input: "s-density", out: "v-density", read: (v) => Math.pow(10, parseFloat(v)), write: (v) => Math.log10(v),
+                      show: (v) => (v >= 0.1 ? v.toFixed(2) : v.toPrecision(2)) },
     temperature:    { input: "s-temp", out: "v-temp", read: parseFloat, show: (v) => v.toFixed(2) },
     particle_speed: { input: "s-speed", out: "v-speed", read: parseFloat, show: (v) => v.toFixed(2) },
     container_size: { input: "s-size", out: "v-size", read: parseFloat, show: (v) => v.toFixed(1) },
@@ -43,6 +45,10 @@
     particle_count: 250, density: 0.8, temperature: 1.0, particle_speed: 1.2,
     container_size: 10.0, timestep: 0.001, total_time: 3.0,
   };
+
+  // The chemistry the description resolved to (substances, reactive flag, state presets). The sliders only
+  // hold numbers, so this is echoed back with every request to keep the substance the user asked for.
+  let extras = null;
 
   let hasRun = false;          // has a simulation ever completed?
   let running = false;         // is one in flight right now?
@@ -85,7 +91,8 @@
     // Clamped to the slider's own range, which is set from the validator's
     // limits -- so a number picked out of the description can never push a
     // control past what the backend would accept.
-    const clamped = Math.min(parseFloat(input.max), Math.max(parseFloat(input.min), value));
+    const raw = spec.write ? spec.write(value) : value;
+    const clamped = Math.min(parseFloat(input.max), Math.max(parseFloat(input.min), raw));
     input.value = clamped;
     refreshSliderLabel(key);
     return clamped;
@@ -98,7 +105,7 @@
 
   function gatherParams() {
     const boundary = radioValue("boundary");
-    return {
+    return Object.assign({
       model: radioValue("model"),
       state: radioValue("state"),
       container_enabled: boundary !== "periodic",
@@ -110,7 +117,7 @@
       particle_speed: sliderValue("particle_speed"),
       timestep: sliderValue("timestep"),
       total_time: sliderValue("total_time"),
-    };
+    }, extras && extras.sim ? extras.sim : {});
   }
 
   // Loads whatever the description produced into the controls. Anything
@@ -130,7 +137,10 @@
   }
 
   function applyStatePreset() {
-    const preset = STATE_PRESETS[radioValue("model")][radioValue("state")];
+    const model = radioValue("model"), state = radioValue("state");
+    // presets for the substance in the description come from the knowledge base; generic ones otherwise
+    const fromKb = extras && extras.presets && extras.presets[model] && extras.presets[model][state];
+    const preset = fromKb || STATE_PRESETS[model][state];
     Object.keys(preset).forEach((key) => setSlider(key, preset[key]));
   }
 
@@ -156,7 +166,7 @@
   async function validateNow() {
     const box = $("validate-status");
     try {
-      const { valid, errors, params } = await API.validateParameters(gatherParams());
+      const { valid, errors, warnings, params } = await API.validateParameters(gatherParams());
       if (valid) {
         const boxLength = params.container_enabled
           ? params.container_size
@@ -164,6 +174,9 @@
         box.className = "status good";
         box.textContent = `Valid. Box edge ${boxLength.toFixed(2)}σ, cut-off ${params.cutoff}σ ` +
                           `(must stay under half the box, ${(boxLength / 2).toFixed(2)}σ).`;
+        if (warnings && warnings.length) {
+          box.innerHTML = escapeHtml(box.textContent) + `<ul>${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>`;
+        }
       } else {
         box.className = "status bad";
         box.innerHTML = `<strong>Cannot run — ${errors.length} problem${errors.length > 1 ? "s" : ""}:</strong>` +
@@ -229,7 +242,7 @@
 
       $("s-frame").max = Math.max(0, result.trajectory.frames.length - 1);
       $("s-frame").value = 0;
-      $("ro-state").textContent = result.params.state;
+      $("ro-state").textContent = (result.properties && result.properties.label) || result.params.state;
       $("ro-n").textContent = result.params.particle_count;
 
       player.playing = true;
@@ -240,6 +253,8 @@
           `${result.energy.length} energy points.`, "ok");
       log(`Mean neighbours per particle: ${player.stats.neighbours.toFixed(1)} ` +
           `(solid packs tightest, a gas has almost none).`);
+      // measured quantities and the scientific explanation: chemical -> properties -> physics -> forces -> observed
+      (result.report || []).forEach((line) => log("  " + line));
     } catch (e) {
       log("Simulation failed: " + e.message, "err");
     } finally {
@@ -265,9 +280,16 @@
 
     $("read-run-btn").disabled = true;
     try {
-      const { params, notes } = await API.extractParameters(text);
+      const { params, notes, extras: found, questions } = await API.extractParameters(text);
       log("Reading description locally…");
       (notes || []).forEach((note) => log("  " + note));
+      // something essential is missing: ask, and wait for the user to add it to the description
+      if (questions && questions.length) {
+        questions.forEach((q) => log("? " + q, "err"));
+        log("Add the answer to the description and press Read Text & Run Simulation again.");
+        return;
+      }
+      extras = found;
       applyParamsToControls(params);
       await validateNow();
       await runSimulation("from description");
@@ -310,6 +332,7 @@
     setRadio("model", DEFAULTS.model);
     setRadio("state", DEFAULTS.state);
     setRadio("boundary", DEFAULTS.boundary);
+    extras = null;
     Object.keys(SLIDERS).forEach((key) => setSlider(key, DEFAULTS[key]));
     syncModelFields();
     scheduleValidate();

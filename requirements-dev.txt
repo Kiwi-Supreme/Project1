@@ -1,0 +1,8 @@
+# only needed to REGENERATE chemical_knowledge/*.json (python chemical_knowledge/build_dataset.py) and to run the tests
+-r backend/requirements.txt
+pytest
+httpx
+mendeleev
+chemicals
+thermo
+openmm

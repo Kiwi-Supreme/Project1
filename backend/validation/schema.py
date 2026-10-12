@@ -12,7 +12,38 @@ truth for what counts as valid.
 from pydantic import BaseModel, field_validator, model_validator
 
 
+class Component(BaseModel):
+    """One substance in the system.  `species` is a key of
+    chemical_knowledge/molecules.json; `fraction` is its share of the particles."""
+    species: str
+    fraction: float = 1.0
+
+    @field_validator("species")
+    @classmethod
+    def check_species(cls, v):
+        from backend.knowledge.kb import get_kb
+        kb = get_kb()
+        if v not in kb.molecules:
+            raise ValueError(f"unknown substance '{v}' (not in the chemical knowledge base)")
+        return v
+
+    @field_validator("fraction")
+    @classmethod
+    def check_fraction(cls, v):
+        if not (v > 0):
+            raise ValueError("component fraction must be positive")
+        return v
+
+
 class SimParams(BaseModel):
+    # ---- Every numeric quantity below is in the interface's REDUCED units of the
+    # reference substance (the first component): lengths in sigma, energies in
+    # epsilon, T* = k_B T / epsilon, rho* = N sigma^3 / V, time in tau.  The knowledge
+    # base supplies that substance's real sigma / epsilon / mass, so the same
+    # numbers mean different real temperatures and lengths for different
+    # substances (see backend/engine/plan.py).
+    components: list[Component] | None = None   # None -> generic argon reference fluid
+    reactive: bool = False                     # True -> reactive MD (ReaxFF), else classical
     # what to simulate
     model: str = "lennard_jones"          # "lennard_jones" or "hard_sphere"
     state: str = "liquid"                 # "solid", "liquid", or "gas"
@@ -35,7 +66,7 @@ class SimParams(BaseModel):
     # Lennard-Jones potential parameters
     epsilon: float = 1.0
     sigma: float = 1.0
-    cutoff: float = 2.5
+    cutoff: float | None = None           # None -> chosen automatically from the box size
 
     # Random seed for the starting arrangement. 0 means "seed from the
     # clock", so two runs of the same settings differ slightly -- which is
@@ -74,22 +105,22 @@ class SimParams(BaseModel):
     @field_validator("density")
     @classmethod
     def check_density(cls, v):
-        if not (0.05 <= v <= 1.2):
-            raise ValueError("density must be between 0.05 and 1.2 (reduced units)")
+        if not (1e-4 <= v <= 1.2):
+            raise ValueError("density must be between 0.0001 and 1.2 (reduced units)")
         return v
 
     @field_validator("temperature")
     @classmethod
     def check_temperature(cls, v):
-        if not (0.05 <= v <= 5.0):
-            raise ValueError("temperature must be between 0.05 and 5.0 (reduced units)")
+        if not (0.05 <= v <= 200.0):
+            raise ValueError("temperature must be between 0.05 and 200 (reduced units, T* = k_B T / epsilon)")
         return v
 
     @field_validator("particle_speed")
     @classmethod
     def check_speed(cls, v):
-        if not (0.05 <= v <= 5.0):
-            raise ValueError("particle_speed must be between 0.05 and 5.0 (reduced units)")
+        if not (0.05 <= v <= 20.0):
+            raise ValueError("particle_speed must be between 0.05 and 20 (reduced units)")
         return v
 
     @field_validator("timestep")
@@ -116,8 +147,8 @@ class SimParams(BaseModel):
     @field_validator("container_size")
     @classmethod
     def check_container_size(cls, v):
-        if not (2.0 <= v <= 40.0):
-            raise ValueError("container_size must be between 2.0 and 40.0 (reduced units)")
+        if not (2.0 <= v <= 300.0):
+            raise ValueError("container_size must be between 2.0 and 300 (reduced units)")
         return v
 
     @model_validator(mode="after")
@@ -128,9 +159,21 @@ class SimParams(BaseModel):
         image. That means the interaction cutoff has to be smaller than
         half the box size. If it isn't, the physics would silently
         double-count interactions -- so we reject the request instead.
+
+        When no cutoff is given, the usual 2.5 sigma is used, shrunk if the box
+        is small (but never below 1.5 sigma, where too much of the
+        attraction would be cut off).
         """
         box_length = self.container_size if self.container_enabled else \
             (self.particle_count / self.density) ** (1.0 / 3.0)
+
+        if self.cutoff is None:
+            self.cutoff = round(min(2.5, 0.49 * box_length / self.sigma), 4)
+            if self.cutoff < 1.5:
+                raise ValueError(
+                    f"the box ({box_length:.2f} sigma) is too small for this many particles: the interaction "
+                    f"cutoff would have to be below 1.5 sigma and must stay smaller than half the box ({box_length / 2.0:.2f} sigma)")
+            return self
 
         cutoff_distance = self.cutoff * self.sigma
         if cutoff_distance >= box_length / 2.0:
