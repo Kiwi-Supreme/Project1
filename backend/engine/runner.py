@@ -102,8 +102,13 @@ def _run_lammps(plan, outdir, timeout):
     logp = os.path.join(outdir, "log.lammps")
     log = open(logp).read() if os.path.isfile(logp) else ""
     if res.returncode != 0:
-        err = [l for l in (log + res.stderr).splitlines() if "ERROR" in l]
-        raise EngineRunError("LAMMPS failed: " + (err[0] if err else (res.stderr.strip() or "unknown error")[:300]))
+        err = [l for l in (log + res.stdout + res.stderr).splitlines() if "ERROR" in l]
+        detail = err[0] if err else (res.stderr.strip() or res.stdout.strip() or "no output")[:400]
+        code = res.returncode & 0xFFFFFFFF
+        hint = ""
+        if code in (0xC0000135, 0xC000007B, 3221225781):
+            hint = " (Windows could not load a DLL LAMMPS needs, usually the MPI runtime: install MS-MPI, or use the official LAMMPS installer)"
+        raise EngineRunError(f"LAMMPS ({lmp}) exited with code {res.returncode}: {detail}{hint}")
     thermo = lammps_parse.parse_thermo(log)
     steps, data = lammps_parse.parse_dump(os.path.join(outdir, "traj.dump"))
     if not thermo or len(steps) == 0:
