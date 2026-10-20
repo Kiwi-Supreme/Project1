@@ -149,3 +149,65 @@ def test_hydrogen_and_oxygen_form_water_by_reactive_md():
     _, res = _run("Simulate hydrogen and oxygen reacting at 5000 K")
     line = _val(res["report"], "Reaction: species count")
     assert "H2O 0→" in line and "H2O 0→0" not in line
+
+
+# ------------------------------------------------------------ graphs and experiments
+def test_a_run_returns_the_measured_property_graphs_with_captions():
+    from backend.analysis import graphs  # noqa: F401  (module imports cleanly)
+    _, res = _run("Simulate argon as a liquid for 2 time units")
+    g = res["graphs"]
+    assert {"thermo_T", "thermo_P", "speed", "rdf", "msd"} <= set(g)
+    for key, graph in g.items():
+        assert graph["caption"] and graph["series"] and all(len(s["x"]) == len(s["y"]) for s in graph["series"]), key
+    assert any(v["label"].startswith("production") or v["label"] for v in g["thermo_T"]["vlines"])
+    # the speed graph overlays the Maxwell-Boltzmann law and another mass at the same temperature
+    labels = [s["label"] for s in g["speed"]["series"]]
+    assert any("Maxwell" in l for l in labels) and any("helium" in l for l in labels)
+
+
+def test_reactive_run_returns_a_species_graph():
+    if os.environ.get("RUN_SLOW") != "1":
+        pytest.skip("slow; set RUN_SLOW=1")
+    _, res = _run("Simulate hydrogen and oxygen reacting at 5000 K")
+    sp = res["graphs"]["species"]
+    assert {s["label"] for s in sp["series"]} >= {"H2", "O2", "H2O"}
+
+
+def _run_experiment(kind, substance, t_star):
+    import time
+    from backend import sweeps
+    jid = sweeps.start(kind, [{"species": substance}], t_star)
+    for _ in range(600):
+        job = sweeps.get(jid)
+        if job["status"] != "running":
+            break
+        time.sleep(0.5)
+    assert job["status"] == "done", job["error"]
+    return job["graphs"]
+
+
+def test_boyle_experiment_shows_pressure_inversely_proportional_to_volume():
+    g = _run_experiment("boyle", "helium", 29.0)["boyle"]
+    pts = g["series"][0]
+    pv = [x * y for x, y in zip(pts["x"], pts["y"])]
+    assert max(pv) / min(pv) < 1.15                                           # P V constant (dilute gas)
+    assert "Boyle" in g["caption"]
+
+
+def test_gay_lussac_experiment_shows_pressure_proportional_to_temperature():
+    g = _run_experiment("charles", "helium", 29.0)["charles"]
+    pts = g["series"][0]
+    ratio = [y / x for x, y in zip(pts["x"], pts["y"])]
+    assert max(ratio) / min(ratio) < 1.08                                      # P / T constant
+
+
+def test_experiments_refuse_substances_without_a_simple_model():
+    from backend import sweeps
+    jid = sweeps.start("eos", [{"species": "water"}], 3.9)
+    import time
+    for _ in range(40):
+        job = sweeps.get(jid)
+        if job["status"] != "running":
+            break
+        time.sleep(0.25)
+    assert job["status"] == "error" and "simple atomic or molecular" in job["error"]

@@ -6,8 +6,8 @@ trajectory dump, and (for reactive runs) the species table.
 import numpy as np
 
 
-def parse_thermo(text):
-    """Rows of the LAST thermo block in a LAMMPS log (the production run)."""
+def parse_thermo_blocks(text):
+    """Every thermo block in a LAMMPS log, as a list of lists of row dicts."""
     blocks, cols, cur = [], None, None
     for line in text.splitlines():
         s = line.split()
@@ -25,10 +25,13 @@ def parse_thermo(text):
                 continue
             if len(vals) == len(cols):
                 cur.append(vals)
-    if not blocks:
-        return []
-    cols, rows = blocks[-1]
-    return [dict(zip(cols, r)) for r in rows]
+    return [[dict(zip(cols, r)) for r in rows] for cols, rows in blocks]
+
+
+def parse_thermo(text):
+    """Rows of the LAST thermo block in a LAMMPS log (the production run)."""
+    blocks = parse_thermo_blocks(text)
+    return blocks[-1] if blocks else []
 
 
 def parse_dump(path):

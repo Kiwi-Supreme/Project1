@@ -245,7 +245,7 @@ def build_case(plan, outdir, seed):
         w("fix_modify wall energy yes virial yes")      # count the wall potential in the energy and pressure
     w(thermo)
     w("thermo_modify flush yes")
-    w(f"thermo {max(equil // 4, 1)}")
+    w(f"thermo {max(equil // 40, 1)}")
     w(f"timestep {dt:.5f}")
     if engine != "reaxff":
         w("minimize 1.0e-6 1.0e-8 200 2000" if engine == "lj" else "minimize 1.0e-4 1.0e-6 200 2000")

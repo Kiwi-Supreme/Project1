@@ -35,6 +35,7 @@ import uuid
 
 import numpy as np
 
+from backend.analysis import graphs as graphs_mod
 from backend.analysis import report as rep
 from backend.engine import lammps_case, lammps_parse
 from backend.engine.plan import make_plan
@@ -109,12 +110,14 @@ def _run_lammps(plan, outdir, timeout):
         if code in (0xC0000135, 0xC000007B, 3221225781):
             hint = " (Windows could not load a DLL LAMMPS needs, usually the MPI runtime: install MS-MPI, or use the official LAMMPS installer)"
         raise EngineRunError(f"LAMMPS ({lmp}) exited with code {res.returncode}: {detail}{hint}")
-    thermo = lammps_parse.parse_thermo(log)
+    blocks = lammps_parse.parse_thermo_blocks(log)
+    thermo = blocks[-1] if blocks else []
+    equil = blocks[-2] if (plan.engine in ("lj", "charged") and len(blocks) >= 2) else None
     steps, data = lammps_parse.parse_dump(os.path.join(outdir, "traj.dump"))
     if not thermo or len(steps) == 0:
         raise EngineRunError("LAMMPS finished but produced no output.")
     species_rows = lammps_parse.parse_species(os.path.join(outdir, "species.out")) if plan.engine == "reaxff" else None
-    return meta, thermo, steps, data, secs, species_rows
+    return meta, thermo, equil, steps, data, secs, species_rows
 
 
 def _reduced_trajectory(plan, meta, steps, data):
@@ -208,7 +211,8 @@ def _hs_report(plan, traj, energy):
         lines.append(f"Why: every particle started with the SAME speed and the speeds relax toward the Maxwell\u2013Boltzmann distribution only by "
                      f"collisions. Here the mean free path is {lam / 10:.1f} nm against a box of {plan.box_A / 10:.1f} nm, so few collisions happen "
                      f"and the distribution has barely relaxed (distance {ks0:.2f} \u2192 {ks1:.2f}). Raise the density to see it relax.")
-    return lines, {"T_K": ref.T_from_star(t_star), "ks_start": float(ks0), "ks_end": float(ks1)}
+    graph = graphs_mod.hard_sphere_speed_graph(plan, sp0, sp1, unit_v)
+    return lines, {"T_K": ref.T_from_star(t_star), "ks_start": float(ks0), "ks_end": float(ks1), "graph": graph}
 
 
 # =================================================================== top level ====
@@ -230,9 +234,10 @@ def run_simulation(params: SimParams, timeout_seconds: int = 600) -> dict:
         label = f"{pm['name']} · hard spheres"
         props = {"label": label, "temperature_K": res["T_K"], "engine": "hard-sphere"}
         return {"trajectory": traj, "energy": energy, "run_seconds": round(secs, 2),
-                "report": [f"Warning: {w}" for w in warnings] + lines, "properties": props}
+                "report": [f"Warning: {w}" for w in warnings] + lines, "properties": props,
+                "graphs": {"speed": res["graph"]}, "scalars": {"T_K": res["T_K"]}}
 
-    meta, thermo, steps, data, secs, species_rows = _run_lammps(plan, outdir, timeout_seconds)
+    meta, thermo, equil, steps, data, secs, species_rows = _run_lammps(plan, outdir, timeout_seconds)
     res = rep.analyse(plan, meta, thermo, steps, data, species_rows)
     measured_phase = rep.diagnose_phase(plan, res)
     lines = [f"Warning: {w}" for w in warnings] + [f"Note: {n}" for n in plan.notes]
@@ -248,6 +253,12 @@ def run_simulation(params: SimParams, timeout_seconds: int = 600) -> dict:
     props = {"label": label, "temperature_K": res["T_K"], "pressure_atm": res["P_atm"], "compressibility": res["Z"],
              "phase_measured": measured_phase, "engine": "LAMMPS " + ("ReaxFF" if plan.engine == "reaxff" else "classical"),
              "density_star": res.get("density_star")}
+    graphs = graphs_mod.build(plan, res, thermo, equil, species_rows)
+    scalars = {"T_K": res["T_K"], "P_atm": res["P_atm"], "P_err": res["P_err"], "Z": res["Z"], "U_per_particle_kcal_mol": res["U_per_object"],
+               "Cv_fluct_over_Nk": res.get("Cv_fluct_over_Nk"), "phase": measured_phase, "density_star": res.get("density_star"),
+               "D_cm2_s": (res.get("msd") or {}).get("D_cm2_s"), "D_err_cm2_s": (res.get("msd") or {}).get("D_err_cm2_s"),
+               "D_star": res.get("D_star"), "box_A": plan.box_A, "n_particles": plan.n_objects, "T_target_K": plan.T_K}
     with open(os.path.join(outdir, "analysis.json"), "w") as f:
-        json.dump({k: v for k, v in res.items() if k not in ("rdf",)} | {"phase": measured_phase}, f, default=str, indent=1)
-    return {"trajectory": traj, "energy": energy, "run_seconds": round(secs, 2), "report": lines, "properties": props}
+        json.dump({k: v for k, v in res.items() if k not in ("rdf", "_arrays", "hydration")} | {"phase": measured_phase}, f, default=str, indent=1)
+    return {"trajectory": traj, "energy": energy, "run_seconds": round(secs, 2), "report": lines, "properties": props,
+            "graphs": graphs, "scalars": scalars}

@@ -156,6 +156,26 @@ The interface is unchanged in design and layout. What changed is what flows thro
 * The status box under the controls also shows chemistry warnings.
 * The substance comes only from the description; slider moves re-run with the same substance.
 
+### The Analysis and Experiments tabs
+
+Two tabs beside **Energy**, same style, turn the run into measurements:
+
+**Analysis** (the run on screen; `backend/analysis/graphs.py`)
+* *Temperature & pressure* against time, equilibration vs production, with target / ideal-gas reference lines.
+* *Speed distribution* with the Maxwell–Boltzmann law for this substance, and the law for other masses at the same T (He vs Ar).
+* *g(r)* with the first peak and coordination number (water: experimental O–O distance marked; salt: ion hydration curves).
+* *Diffusion (MSD)* with the Einstein linear fit and a ballistic / diffusive / plateau reading.
+* *Reactions*: species counts over time for reactive runs.
+
+**Experiments** (`backend/sweeps.py`; each runs several simulations in the background and compares with theory)
+* *Equation of state*: P vs density against the ideal gas and van der Waals (from the stored critical constants).
+* *Boyle's law*: P vs V at constant T. *Gay-Lussac / Charles*: P vs T at constant volume.
+* *Heating curve*: energy and diffusion of a heated crystal; melting appears where diffusion switches on.
+* *Heat capacity*: from dU/dT and independently from energy fluctuations, against the theoretical 3 k_B (crystal) and 3/2 k_B (ideal gas).
+* *Diffusion vs T*: Arrhenius plot ln D vs 1/T and the activation energy (works for water too).
+
+Every caption under a graph is generated from the plotted numbers by fixed rules.
+
 ## 8. Installing and running
 
 **Requirements:** Python 3.10+, a C++ compiler (for the hard-sphere engine). No GPU, no internet at run time.

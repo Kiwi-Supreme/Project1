@@ -61,6 +61,12 @@ def analyse(plan, meta, thermo, steps, data, species_rows=None):
     ke = np.array([r["KinEng"] for r in thermo])
     et = np.array([r["TotEng"] for r in thermo])
     out["pe_per_object"] = float(pe.mean() / N)
+    out["U_per_object"] = float(et.mean() / N)                                 # total energy per particle, kcal/mol
+    if plan.engine == "lj" and len(ke) > 20:
+        # Lebowitz-Percus-Verlet: in a constant-energy run the kinetic-energy fluctuations give Cv
+        kT = KB * T
+        x = 2.0 * float(np.var(ke)) / (3.0 * N * kT ** 2)
+        out["Cv_fluct_over_Nk"] = 1.5 / (1.0 - x) if x < 0.9 else None
     out["ke_per_object"] = float(ke.mean() / N)
     out["energy_drift_rel"] = float((et[-1] - et[0]) / max(abs(ke.mean()), 1e-9))
     out["energy_breakdown"] = {k: float(np.mean([r.get(c, 0.0) for r in thermo]) / N)
@@ -75,16 +81,27 @@ def analyse(plan, meta, thermo, steps, data, species_rows=None):
         # --- primary species centre sites
         prim_i = [i for i, s in enumerate(plan.species) if s is plan.primary][0]
         centres = np.where((sp_idx == prim_i) & (site_idx == 0))[0]
-        # --- speeds of the primary species (Maxwell-Boltzmann check)
-        sp = np.linalg.norm(data[:, centres, 8:11], axis=2)               # A/fs
+        # --- speeds of the primary species' molecular centres of mass (Maxwell-Boltzmann check)
+        mass_atom = np.array([meta["types"][int(t) - 1]["mass"] for t in data[0, :, 1]])
+        sp = None
+        if plan.engine in ("lj", "charged"):
+            prim_atoms = np.where(sp_idx == prim_i)[0]
+            nsite = plan.primary.n_sites
+            groups = prim_atoms.reshape(-1, nsite)
+            mv = data[:, groups, 8:11] * mass_atom[groups][None, :, :, None]
+            com_v = mv.sum(axis=2) / mass_atom[groups].sum(axis=1)[None, :, None]
+            sp = np.linalg.norm(com_v, axis=2)                               # A/fs
+        else:
+            sp = np.linalg.norm(data[:, centres, 8:11], axis=2)
         out["mean_speed_m_s"] = float(sp.mean() * 1e5)
-        m = plan.primary.mol["molar_mass_g_mol"] if plan.primary.model["type"] != "rigid_molecule_tip3p" else None
-        if m and plan.engine in ("lj", "charged"):
+        m = plan.primary.mol["molar_mass_g_mol"]
+        if plan.engine in ("lj", "charged"):
             a = math.sqrt(KB * T / (MVV2E * m))                           # Maxwell scale parameter, A/fs
             out["mean_speed_theory_m_s"] = float(math.sqrt(8 * KB * T / (math.pi * MVV2E * m)) * 1e5)
+            sample = sp[:: max(1, len(sp) // 12)].ravel()
+            out.setdefault("_arrays", {})["speeds_m_s"] = sample * 1e5
             try:
                 from scipy import stats
-                sample = sp[:: max(1, len(sp) // 12)].ravel()
                 out["ks_maxwell"] = float(stats.kstest(sample, "maxwell", args=(0, a)).statistic)
             except Exception:
                 pass
@@ -170,7 +187,7 @@ def _pair_rdf(pa, pb, L):
     while j + 1 < nb and g[j + 1] < g[j]:
         j += 1
     coord = 4 * math.pi * rho_b * float(np.sum(g[:j + 1] * rc[:j + 1] ** 2) * (edges[1] - edges[0]))
-    return {"peak_r_A": float(rc[ip]), "peak_g": float(g[ip]), "coordination": coord}
+    return {"peak_r_A": float(rc[ip]), "peak_g": float(g[ip]), "coordination": coord, "r": rc.tolist(), "g": g.tolist()}
 
 
 def _msd(xu, dt_frame_fs):
@@ -190,8 +207,14 @@ def _msd(xu, dt_frame_fs):
     ds = np.array([slope(g) / 6.0 for g in groups])
     d = slope(slice(None)) / 6.0
     err = float(ds.std(ddof=1) / math.sqrt(len(ds)))
+    curve = per_atom.mean(axis=1)
+    coef = np.polyfit(t[lo:hi], curve[lo:hi], 1)
+    a0, a1 = int(0.2 * len(t)), int(0.8 * len(t))
+    ll = float(np.polyfit(np.log(t[a0:a1]), np.log(np.maximum(curve[a0:a1], 1e-12)), 1)[0])
+    step = max(1, len(t) // 60)
     return {"D_A2_fs": float(d), "D_cm2_s": float(d * 0.1), "D_err_cm2_s": err * 0.1,
-            "msd_final_A2": float(per_atom[-1].mean())}
+            "msd_final_A2": float(per_atom[-1].mean()), "t_fs": t[::step].tolist(), "msd": curve[::step].tolist(),
+            "slope": float(coef[0]), "intercept": float(coef[1]), "loglog_slope": ll}
 
 
 def diagnose_phase(plan, res):

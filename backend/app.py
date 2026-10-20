@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from backend import sweeps
 from backend.agent.orchestrator import interpret
 from backend.engine.plan import make_plan
 from backend.knowledge.checks import domain_check
@@ -123,7 +124,32 @@ def simulate(request: SimulateRequest):
         "run_seconds": result["run_seconds"],
         "report": result["report"],
         "properties": result["properties"],
+        "graphs": result.get("graphs", {}),
     }
+
+
+class SweepRequest(BaseModel):
+    kind: str
+    components: list[dict] | None = None
+    temperature: float = 1.0          # reduced temperature T* of the current setup
+
+
+@app.post("/api/sweep")
+def sweep_start(request: SweepRequest):
+    """Start a 'virtual experiment' (several simulations varying one quantity) in the background."""
+    try:
+        jid = sweeps.start(request.kind, request.components, request.temperature)
+    except sweeps.SweepError as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
+    return {"id": jid}
+
+
+@app.get("/api/sweep/{jid}")
+def sweep_status(jid: str):
+    job = sweeps.get(jid)
+    if job is None:
+        return JSONResponse(status_code=404, content={"error": "unknown experiment id"})
+    return {k: job[k] for k in ("id", "kind", "status", "done", "total", "graphs", "error", "substance")}
 
 
 # --- serve the frontend itself ---

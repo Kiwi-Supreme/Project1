@@ -42,4 +42,21 @@ const API = {
     }
     return data; // { params, trajectory, energy, run_seconds, report, properties }
   },
+
+  // virtual experiments: start one, then poll until it is done
+  async startSweep(kind, components, temperature) {
+    const res = await fetch("/api/sweep", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, components, temperature }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not start the experiment.");
+    return data.id;
+  },
+
+  async getSweep(id) {
+    const res = await fetch("/api/sweep/" + id);
+    return res.json();
+  },
 };
