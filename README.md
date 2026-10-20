@@ -325,4 +325,5 @@ contained change, not a rewrite:
 
 No GPU or CUDA toolkit is required to build, run, or demonstrate this project today.
 #   p r o j e c t - 1 - - - t y p e - 2  
+ #   p r o j e c t - 1 - - - t y p e - 2  
  
