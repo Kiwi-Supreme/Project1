@@ -324,5 +324,3 @@ contained change, not a rewrite:
   drop-in replacement, which is why it's future work rather than part of this prototype.
 
 No GPU or CUDA toolkit is required to build, run, or demonstrate this project today.
-#   p r o j e c t - 1 - - - t y p e - 2  
- 
