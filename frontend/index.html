@@ -24,7 +24,7 @@
       <div class="panel-body">
         <textarea id="f-text" spellcheck="false">Simulate 250 particles inside a box as a liquid for 3 time units.</textarea>
         <button class="wide" id="read-run-btn" style="margin-top:6px;">Read Text &amp; Run Simulation</button>
-        <p class="hint">The sentence is read by a local rule-based parser. Everything it understood is listed in Messages below, and loaded into the controls underneath — where it can be changed.</p>
+        <p class="hint">The sentence is read locally and the substances in it are looked up in the chemical knowledge base. Everything it understood is listed in Messages below, and loaded into the controls underneath — where it can be changed.</p>
       </div>
     </section>
 
@@ -60,22 +60,22 @@
 
         <div class="ctl" data-ctl="density" data-model="lennard_jones">
           <div class="ctl-top"><label for="s-density">Density &rho;*</label><span class="val" id="v-density">0.80</span></div>
-          <input type="range" id="s-density" min="0.05" max="1.20" step="0.01" value="0.80">
+          <input type="range" id="s-density" min="-4" max="0.08" step="0.01" value="-0.1">
         </div>
 
         <div class="ctl" data-ctl="temperature" data-model="lennard_jones">
           <div class="ctl-top"><label for="s-temp">Temperature T*</label><span class="val" id="v-temp">1.00</span></div>
-          <input type="range" id="s-temp" min="0.05" max="5.00" step="0.05" value="1.00">
+          <input type="range" id="s-temp" min="0.05" max="200" step="0.05" value="1.00">
         </div>
 
         <div class="ctl" data-ctl="particle_speed" data-model="hard_sphere" hidden>
           <div class="ctl-top"><label for="s-speed">Particle speed v*</label><span class="val" id="v-speed">1.20</span></div>
-          <input type="range" id="s-speed" min="0.05" max="5.00" step="0.05" value="1.20">
+          <input type="range" id="s-speed" min="0.05" max="20" step="0.05" value="1.20">
         </div>
 
         <div class="ctl" data-ctl="container_size">
           <div class="ctl-top"><label for="s-size">Container size L</label><span class="val" id="v-size">10.0</span></div>
-          <input type="range" id="s-size" min="2" max="40" step="0.5" value="10">
+          <input type="range" id="s-size" min="2" max="300" step="0.5" value="10">
         </div>
 
         <div class="ctl" data-ctl="timestep">
@@ -181,11 +181,42 @@
     <div class="tabstrip" role="tablist">
       <button class="tab" id="tab-3d" role="tab" aria-selected="true" aria-controls="view-3d">View 1</button>
       <button class="tab" id="tab-energy" role="tab" aria-selected="false" aria-controls="view-energy">Energy</button>
+      <button class="tab" id="tab-analysis" role="tab" aria-selected="false" aria-controls="view-analysis">Analysis</button>
+      <button class="tab" id="tab-sweeps" role="tab" aria-selected="false" aria-controls="view-sweeps">Experiments</button>
     </div>
 
     <div class="viewstack">
       <div class="view" id="view-3d"><canvas id="particle-canvas"></canvas></div>
       <div class="view" id="view-energy" hidden><canvas id="energy-canvas"></canvas></div>
+
+      <!-- measured properties of the run that was just played (items: temperature/pressure, speeds, g(r), MSD, reactions) -->
+      <div class="view plotview" id="view-analysis" hidden>
+        <div class="plotbar" id="analysis-bar">
+          <button data-graph="thermo" aria-pressed="true">Temperature &amp; pressure</button>
+          <button data-graph="speed" aria-pressed="false">Speed distribution</button>
+          <button data-graph="rdf" aria-pressed="false">g(r)</button>
+          <button data-graph="msd" aria-pressed="false">Diffusion (MSD)</button>
+          <button data-graph="species" aria-pressed="false">Reactions</button>
+        </div>
+        <div class="plotarea"><canvas id="analysis-canvas-a"></canvas><canvas id="analysis-canvas-b"></canvas></div>
+        <div class="plotnote" id="analysis-note">Run a simulation to see its measured properties.</div>
+      </div>
+
+      <!-- virtual experiments: several simulations, one quantity varied, compared with theory -->
+      <div class="view plotview" id="view-sweeps" hidden>
+        <div class="plotbar" id="sweeps-bar">
+          <button data-exp="eos" aria-pressed="true">Equation of state</button>
+          <button data-exp="boyle" aria-pressed="false">Boyle's law</button>
+          <button data-exp="charles" aria-pressed="false">Gay-Lussac / Charles</button>
+          <button data-exp="heating" aria-pressed="false">Heating curve</button>
+          <button data-exp="heatcap" aria-pressed="false">Heat capacity</button>
+          <button data-exp="arrhenius" aria-pressed="false">Diffusion vs T</button>
+          <button id="sweep-run" class="run">Run experiment</button>
+          <span id="sweep-status"></span>
+        </div>
+        <div class="plotarea"><canvas id="sweeps-canvas-a"></canvas><canvas id="sweeps-canvas-b"></canvas></div>
+        <div class="plotnote" id="sweeps-note"></div>
+      </div>
     </div>
 
     <div class="readout" id="readout">
@@ -209,6 +240,7 @@
 <script src="js/scene3d.js"></script>
 <script src="js/trajectoryPlayer.js"></script>
 <script src="js/energyChart.js"></script>
+<script src="js/plots.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,73 @@
+{
+ "_meta": {
+  "description": "Types of interaction between particles, what physical term represents each in the simulation, and the rules used to decide which apply to a pair of species. Qualitative textbook chemistry; the numbers that go with them live in force_parameters.json.",
+  "source": "General chemistry textbook classification of intermolecular forces"
+ },
+ "types": {
+  "london_dispersion": {
+   "name": "London dispersion (van der Waals)",
+   "origin": "Temporary correlated fluctuations of the electron cloud induce attractive dipoles in neighbouring particles. Present between ALL particles; the only attraction between noble-gas atoms and non-polar molecules.",
+   "strength_rank": 1,
+   "model_term": "attractive r^-6 part of the Lennard-Jones potential",
+   "also_includes": "Short-range Pauli repulsion (overlapping electron clouds), the r^-12 part of the Lennard-Jones potential"
+  },
+  "dipole_dipole": {
+   "name": "Dipole-dipole",
+   "origin": "Permanent charge separation in a polar molecule makes neighbouring molecules align positive end to negative end.",
+   "strength_rank": 2,
+   "model_term": "Coulomb interaction between the partial atomic charges"
+  },
+  "hydrogen_bonding": {
+   "name": "Hydrogen bonding",
+   "origin": "An H atom bonded to N, O or F (large electronegativity) carries a strong partial positive charge and is attracted to a lone pair on a neighbouring N, O or F.",
+   "strength_rank": 3,
+   "model_term": "Emerges from the Coulomb interaction between the partial charges (H +, O -) plus the Lennard-Jones repulsion on oxygen; there is no separate hydrogen-bond term"
+  },
+  "ion_dipole": {
+   "name": "Ion-dipole",
+   "origin": "A full charge attracts the oppositely charged end of a polar molecule (hydration of ions in water).",
+   "strength_rank": 4,
+   "model_term": "Coulomb interaction between the ion charge and the partial charges of the molecule"
+  },
+  "ion_ion": {
+   "name": "Ion-ion (ionic)",
+   "origin": "Coulomb attraction/repulsion between full charges.",
+   "strength_rank": 5,
+   "model_term": "Coulomb interaction between the ion charges"
+  }
+ },
+ "rules": {
+  "mixing": "Unlike pairs use Lorentz-Berthelot mixing: sigma_ij = (sigma_i + sigma_j)/2 and epsilon_ij = sqrt(epsilon_i * epsilon_j).",
+  "coulomb_needed_if": "either species of the pair carries partial or full charges (net charge or a polar model with site charges)",
+  "polar_nonpolar_mix": "A polar and a non-polar species interact only by dispersion (plus induced effects not modelled); they tend not to mix, e.g. methane in water.",
+  "ionic_requires_polar_solvent": "Ions are only meaningful in the presence of a polar solvent; free ions in vacuum/gas are warned about.",
+  "charge_neutrality": "The total charge of the periodic cell must be zero."
+ },
+ "reactions": [
+  {
+   "name": "hydrogen combustion",
+   "equation": "2 H2 + O2 -> 2 H2O",
+   "stoich": {
+    "hydrogen": -2,
+    "oxygen": -1,
+    "water": 2
+   },
+   "reaction_enthalpy_kJ": -483.6,
+   "enthalpy_source": "sum of gas-phase formation enthalpies (thermo/DIPPR); computed, not typed",
+   "reaxff_supported": true
+  },
+  {
+   "name": "methane combustion",
+   "equation": "CH4 + 2 O2 -> CO2 + 2 H2O",
+   "stoich": {
+    "methane": -1,
+    "oxygen": -2,
+    "carbon_dioxide": 1,
+    "water": 2
+   },
+   "reaction_enthalpy_kJ": -802.6,
+   "enthalpy_source": "sum of gas-phase formation enthalpies (thermo/DIPPR); computed, not typed",
+   "reaxff_supported": true
+  }
+ ]
+}

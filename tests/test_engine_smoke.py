@@ -67,27 +67,17 @@ def test_hard_sphere_kinetic_energy_conserved(tmp_path):
     assert drift < 0.05, f"hard-sphere total kinetic energy drifted by {drift}, expected near-perfect conservation"
 
 
-def test_liquid_settles_toward_bottom_of_container(tmp_path):
-    """The liquid should pool on the floor of the container.
-
-    This is checked on the BULK of the liquid, not on its single highest
-    particle. A real liquid at this temperature evaporates the occasional
-    particle out of the pool, and one of those can be most of the way up
-    the box -- so a `max(y) < ...` assertion was testing evaporation
-    rather than settling, and failed intermittently because of it.
-    """
+def test_particles_stay_inside_the_container_and_nothing_pulls_them_down(tmp_path):
+    """Reflective walls confine every particle for the whole run. There is no gravity and no
+    friction in the engine any more (they were non-physical stand-ins), so a liquid does not
+    'settle': its mean height stays near the middle of the box."""
     trajectory, _ = _run(tmp_path, "model=lennard_jones\nstate=liquid\ncontainer_enabled=true\ncontainer_shape=cuboid\nparticle_count=150\ncontainer_size=10.0\ndensity=0.8\ntemperature=1.0\ntimestep=0.001\ntotal_time=2.0")
-    last_frame = trajectory["frames"][-1]
     box_length = trajectory["box_length"]
-    heights = sorted(p[1] for p in last_frame)
-
-    mean_height = sum(heights) / len(heights)
-    assert mean_height < box_length * 0.25, f"the liquid sits at a mean height of {mean_height}, it has not settled"
-
-    ninety_fifth = heights[int(len(heights) * 0.95)]
-    assert ninety_fifth < box_length * 0.4, f"95% of the liquid should be low in the box, but reaches {ninety_fifth}"
-
-    assert heights[0] >= 0.0 and heights[-1] <= box_length, "a particle escaped the container"
+    for frame in trajectory["frames"]:
+        for p in frame:
+            assert all(-1e-9 <= c <= box_length + 1e-9 for c in p[:3]), "a particle escaped the container"
+    heights = [p[1] for p in trajectory["frames"][-1]]
+    assert 0.2 * box_length < sum(heights) / len(heights) < 0.8 * box_length, "no external field: mean height should not drift to the floor"
 
 
 # The remaining tests build their config from a dict rather than one long

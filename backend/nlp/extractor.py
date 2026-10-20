@@ -1,6 +1,14 @@
 """
 nlp/extractor.py
 
+NOTE (current role): the full language pipeline is now backend/agent/orchestrator.py,
+which identifies substances in the chemical knowledge base and decides the physics.
+This module is still used by it for the shared sentence rules (state words,
+containers, negation, written-out numbers), and is kept as the substance-free
+BASELINE reader that tests/test_extractor.py checks.
+
+The original description follows.
+
 The local language-processing component. It reads the user's plain-English
 description and pulls out the same structured parameters the manual
 controls collect. This is the ONLY part of the system that reads free

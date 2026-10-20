@@ -30,7 +30,9 @@
   // interface means adding one row here and one block of markup.
   const SLIDERS = {
     particle_count: { input: "s-n", out: "v-n", read: (v) => parseInt(v, 10), show: (v) => String(v) },
-    density:        { input: "s-density", out: "v-density", read: parseFloat, show: (v) => v.toFixed(2) },
+    // density spans four orders of magnitude (a dilute gas to a dense liquid), so the slider runs on log10(rho*)
+    density:        { input: "s-density", out: "v-density", read: (v) => Math.pow(10, parseFloat(v)), write: (v) => Math.log10(v),
+                      show: (v) => (v >= 0.1 ? v.toFixed(2) : v.toPrecision(2)) },
     temperature:    { input: "s-temp", out: "v-temp", read: parseFloat, show: (v) => v.toFixed(2) },
     particle_speed: { input: "s-speed", out: "v-speed", read: parseFloat, show: (v) => v.toFixed(2) },
     container_size: { input: "s-size", out: "v-size", read: parseFloat, show: (v) => v.toFixed(1) },
@@ -44,6 +46,12 @@
     container_size: 10.0, timestep: 0.001, total_time: 3.0,
   };
 
+  // The chemistry the description resolved to (substances, reactive flag, state presets). The sliders only
+  // hold numbers, so this is echoed back with every request to keep the substance the user asked for.
+  let extras = null;
+
+  let lastGraphs = {};         // measured-property graphs of the run on screen (Analysis tab)
+  let analysisChoice = "thermo";
   let hasRun = false;          // has a simulation ever completed?
   let running = false;         // is one in flight right now?
   let rerunTimer = null;
@@ -85,7 +93,8 @@
     // Clamped to the slider's own range, which is set from the validator's
     // limits -- so a number picked out of the description can never push a
     // control past what the backend would accept.
-    const clamped = Math.min(parseFloat(input.max), Math.max(parseFloat(input.min), value));
+    const raw = spec.write ? spec.write(value) : value;
+    const clamped = Math.min(parseFloat(input.max), Math.max(parseFloat(input.min), raw));
     input.value = clamped;
     refreshSliderLabel(key);
     return clamped;
@@ -98,7 +107,7 @@
 
   function gatherParams() {
     const boundary = radioValue("boundary");
-    return {
+    return Object.assign({
       model: radioValue("model"),
       state: radioValue("state"),
       container_enabled: boundary !== "periodic",
@@ -110,7 +119,7 @@
       particle_speed: sliderValue("particle_speed"),
       timestep: sliderValue("timestep"),
       total_time: sliderValue("total_time"),
-    };
+    }, extras && extras.sim ? extras.sim : {});
   }
 
   // Loads whatever the description produced into the controls. Anything
@@ -130,7 +139,10 @@
   }
 
   function applyStatePreset() {
-    const preset = STATE_PRESETS[radioValue("model")][radioValue("state")];
+    const model = radioValue("model"), state = radioValue("state");
+    // presets for the substance in the description come from the knowledge base; generic ones otherwise
+    const fromKb = extras && extras.presets && extras.presets[model] && extras.presets[model][state];
+    const preset = fromKb || STATE_PRESETS[model][state];
     Object.keys(preset).forEach((key) => setSlider(key, preset[key]));
   }
 
@@ -156,7 +168,7 @@
   async function validateNow() {
     const box = $("validate-status");
     try {
-      const { valid, errors, params } = await API.validateParameters(gatherParams());
+      const { valid, errors, warnings, params } = await API.validateParameters(gatherParams());
       if (valid) {
         const boxLength = params.container_enabled
           ? params.container_size
@@ -164,6 +176,9 @@
         box.className = "status good";
         box.textContent = `Valid. Box edge ${boxLength.toFixed(2)}σ, cut-off ${params.cutoff}σ ` +
                           `(must stay under half the box, ${(boxLength / 2).toFixed(2)}σ).`;
+        if (warnings && warnings.length) {
+          box.innerHTML = escapeHtml(box.textContent) + `<ul>${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>`;
+        }
       } else {
         box.className = "status bad";
         box.innerHTML = `<strong>Cannot run — ${errors.length} problem${errors.length > 1 ? "s" : ""}:</strong>` +
@@ -186,6 +201,10 @@
   const scene = new Scene3D($("particle-canvas"));
   const player = new TrajectoryPlayer(scene);
   const chart = new EnergyChart($("energy-canvas"));
+  const analysisA = new PlotChart($("analysis-canvas-a"));
+  const analysisB = new PlotChart($("analysis-canvas-b"));
+  const sweepA = new PlotChart($("sweeps-canvas-a"));
+  const sweepB = new PlotChart($("sweeps-canvas-b"));
 
   function animationLoop() {
     player.tick();
@@ -226,10 +245,12 @@
       const result = await API.runSimulation(params);
       player.load(result.trajectory);
       chart.setData(result.energy);
+      lastGraphs = result.graphs || {};
+      showAnalysis();
 
       $("s-frame").max = Math.max(0, result.trajectory.frames.length - 1);
       $("s-frame").value = 0;
-      $("ro-state").textContent = result.params.state;
+      $("ro-state").textContent = (result.properties && result.properties.label) || result.params.state;
       $("ro-n").textContent = result.params.particle_count;
 
       player.playing = true;
@@ -240,6 +261,8 @@
           `${result.energy.length} energy points.`, "ok");
       log(`Mean neighbours per particle: ${player.stats.neighbours.toFixed(1)} ` +
           `(solid packs tightest, a gas has almost none).`);
+      // measured quantities and the scientific explanation: chemical -> properties -> physics -> forces -> observed
+      (result.report || []).forEach((line) => log("  " + line));
     } catch (e) {
       log("Simulation failed: " + e.message, "err");
     } finally {
@@ -265,9 +288,16 @@
 
     $("read-run-btn").disabled = true;
     try {
-      const { params, notes } = await API.extractParameters(text);
+      const { params, notes, extras: found, questions } = await API.extractParameters(text);
       log("Reading description locally…");
       (notes || []).forEach((note) => log("  " + note));
+      // something essential is missing: ask, and wait for the user to add it to the description
+      if (questions && questions.length) {
+        questions.forEach((q) => log("? " + q, "err"));
+        log("Add the answer to the description and press Read Text & Run Simulation again.");
+        return;
+      }
+      extras = found;
       applyParamsToControls(params);
       await validateNow();
       await runSimulation("from description");
@@ -310,6 +340,7 @@
     setRadio("model", DEFAULTS.model);
     setRadio("state", DEFAULTS.state);
     setRadio("boundary", DEFAULTS.boundary);
+    extras = null;
     Object.keys(SLIDERS).forEach((key) => setSlider(key, DEFAULTS[key]));
     syncModelFields();
     scheduleValidate();
@@ -379,21 +410,114 @@
   });
 
   // --- tabs ---
+  const TABS = ["3d", "energy", "analysis", "sweeps"];
   function selectTab(which) {
-    const is3d = which === "3d";
-    $("tab-3d").setAttribute("aria-selected", String(is3d));
-    $("tab-energy").setAttribute("aria-selected", String(!is3d));
-    $("view-3d").hidden = !is3d;
-    $("view-energy").hidden = is3d;
+    TABS.forEach((t) => {
+      $("tab-" + t).setAttribute("aria-selected", String(t === which));
+      $("view-" + t).hidden = t !== which;
+    });
     resizeViews();
   }
-  $("tab-3d").addEventListener("click", () => selectTab("3d"));
-  $("tab-energy").addEventListener("click", () => selectTab("energy"));
+  TABS.forEach((t) => $("tab-" + t).addEventListener("click", () => selectTab(t)));
+
+  // --- two-chart area shared by the Analysis and Experiments tabs ---
+  function showCharts(chartA, chartB, noteEl, graphs, emptyMessage) {
+    const list = graphs.filter(Boolean);
+    chartB.canvas.hidden = list.length < 2;
+    if (!list.length) {
+      chartA.setGraph(null, emptyMessage);
+      noteEl.textContent = emptyMessage;
+    } else {
+      chartA.setGraph(list[0]);
+      chartB.setGraph(list.length > 1 ? list[1] : null);
+      noteEl.textContent = list.map((g) => g.caption).join("  ");
+    }
+    chartA.resize();
+    chartB.resize();
+  }
+
+  // --- Analysis tab: what was measured in the run on screen ---
+  const ANALYSIS_VIEWS = {
+    thermo:  { keys: ["thermo_T", "thermo_P"], none: "No thermodynamic record for this run." },
+    speed:   { keys: ["speed"], none: "Speed distribution is not available for this run (reactive runs mix atoms of different mass)." },
+    rdf:     { keys: ["rdf"], none: "g(r) needs a periodic bulk system; it is not computed for walled containers, hard spheres or tiny systems." },
+    msd:     { keys: ["msd"], none: "Mean-squared displacement needs a periodic bulk system; not computed for this run." },
+    species: { keys: ["species"], none: "Species are only counted in reactive runs (e.g. 'hydrogen and oxygen reacting at high temperature')." },
+  };
+  function showAnalysis() {
+    document.querySelectorAll("#analysis-bar button").forEach((b) => {
+      const v = ANALYSIS_VIEWS[b.dataset.graph];
+      b.setAttribute("aria-pressed", String(b.dataset.graph === analysisChoice));
+      b.style.opacity = v.keys.some((k) => lastGraphs[k]) ? "1" : "0.5";
+    });
+    const v = ANALYSIS_VIEWS[analysisChoice];
+    const empty = hasRun || Object.keys(lastGraphs).length ? v.none : "Run a simulation to see its measured properties.";
+    showCharts(analysisA, analysisB, $("analysis-note"), v.keys.map((k) => lastGraphs[k]), empty);
+  }
+  document.querySelectorAll("#analysis-bar button").forEach((b) => {
+    b.addEventListener("click", () => { analysisChoice = b.dataset.graph; showAnalysis(); });
+  });
+
+  // --- Experiments tab: several simulations, one quantity varied ---
+  const EXPERIMENTS = {
+    eos:       { run: "eos", show: ["eos"], hint: "Pressure against density at the current temperature, compared with the ideal-gas law and van der Waals (7 simulations, about 10 s)." },
+    boyle:     { run: "boyle", show: ["boyle"], hint: "Squeeze a gas: pressure against volume at constant temperature, to test Boyle's law (6 simulations, about 10 s)." },
+    charles:   { run: "charles", show: ["charles"], hint: "Heat a gas in a fixed box: pressure against temperature (Gay-Lussac; with Boyle's law it gives Charles's law) (6 simulations, about 10 s)." },
+    heating:   { run: "heating", show: ["heating_U", "heating_D"], hint: "Heat a crystal of the current substance and watch it melt: energy and diffusion against temperature (8 simulations, about 30 s)." },
+    heatcap:   { run: "heating", show: ["heat_capacity"], hint: "Heat capacity of a crystal measured two ways, against the theoretical 3 k_B and 3/2 k_B (uses the heating-curve runs, about 30 s)." },
+    arrhenius: { run: "arrhenius", show: ["arrhenius"], hint: "Diffusion of the liquid at several temperatures: the slope of ln D against 1/T is the activation energy (5 simulations; about 15 s, or 2-3 min for water)." },
+  };
+  const sweepResults = {};      // run kind -> graphs
+  let sweepChoice = "eos";
+  let sweepRunning = false;
+
+  function showSweeps() {
+    document.querySelectorAll("#sweeps-bar button[data-exp]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.exp === sweepChoice)));
+    const exp = EXPERIMENTS[sweepChoice];
+    const done = sweepResults[exp.run];
+    if (done) showCharts(sweepA, sweepB, $("sweeps-note"), exp.show.map((k) => done[k]), "No result.");
+    else showCharts(sweepA, sweepB, $("sweeps-note"), [], exp.hint + " Press Run experiment.");
+  }
+  document.querySelectorAll("#sweeps-bar button[data-exp]").forEach((b) => {
+    b.addEventListener("click", () => { sweepChoice = b.dataset.exp; showSweeps(); });
+  });
+
+  async function runSweep() {
+    if (sweepRunning) return;
+    const exp = EXPERIMENTS[sweepChoice];
+    const status = $("sweep-status");
+    sweepRunning = true;
+    $("sweep-run").disabled = true;
+    status.textContent = "starting…";
+    try {
+      const components = extras && extras.sim ? extras.sim.components : null;
+      const id = await API.startSweep(exp.run, components, sliderValue("temperature"));
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const job = await API.getSweep(id);
+        if (job.status === "running") { status.textContent = `running ${job.done} / ${job.total || "…"} simulations…`; continue; }
+        if (job.status === "error") throw new Error(job.error);
+        sweepResults[exp.run] = job.graphs;
+        status.textContent = `done (${job.substance})`;
+        log(`Experiment finished: ${sweepChoice} for ${job.substance}.`, "ok");
+        break;
+      }
+    } catch (e) {
+      status.textContent = "";
+      log("Experiment failed: " + e.message, "err");
+    } finally {
+      sweepRunning = false;
+      $("sweep-run").disabled = false;
+      showSweeps();
+    }
+  }
+  $("sweep-run").addEventListener("click", runSweep);
 
   // --- keeping both canvases matched to the space the layout gives them ---
   function resizeViews() {
     scene.resize();
     chart.resize();
+    [analysisA, analysisB, sweepA, sweepB].forEach((c) => c.resize());
   }
   window.addEventListener("resize", resizeViews);
   if (window.ResizeObserver) {
@@ -405,6 +529,8 @@
   Object.keys(SLIDERS).forEach(refreshSliderLabel);
   syncModelFields();
   syncCameraSliders();
+  showAnalysis();
+  showSweeps();
   resizeViews();
   requestAnimationFrame(animationLoop);
 

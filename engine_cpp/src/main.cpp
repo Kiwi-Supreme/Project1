@@ -39,15 +39,6 @@ int main(int argc, char** argv) {
     bool periodic = !cfg.container_enabled;
     double particle_radius = 0.5 * cfg.sigma;
 
-    // Only the liquid state settles toward the floor of a real container.
-    // A solid is meant to stay dense and near its starting lattice
-    // position -- gravity would just make the whole block collapse and
-    // compress, which reads as "falling", not "stable solid". A gas is
-    // meant to fill the whole space. Periodic mode has no floor at all.
-    bool use_gravity = cfg.container_enabled && cfg.state == "liquid";
-    const double GRAVITY_STRENGTH = 6.0;   // tuned for a visible settling effect, not a measured constant
-    const double DAMPING_FACTOR = 0.999;   // tiny energy loss per step, standing in for real dissipation
-
     // --- figure out how many steps to run and how often to save a frame ---
     int total_steps = static_cast<int>(cfg.total_time / cfg.timestep);
     if (total_steps < 1) total_steps = 1;
@@ -64,7 +55,6 @@ int main(int argc, char** argv) {
     } else {
         for (size_t i = 0; i < particles.size(); i++) particles[i].fx = particles[i].fy = particles[i].fz = 0.0;
     }
-    if (use_gravity) apply_gravity(particles, GRAVITY_STRENGTH);
 
     // --- the main simulation loop ---
     // Each iteration starts holding the TRUE state at time = step*dt
@@ -101,20 +91,16 @@ int main(int argc, char** argv) {
         }
 
         // 4. Recompute the force at the new positions (Lennard-Jones only --
-        //    Hard-Sphere has no continuous force, just gravity + collisions).
+        //    Hard-Sphere has no continuous force, just collisions).
         if (is_lj) {
             potential_energy = compute_lj_forces(particles, cfg, box_length, periodic);
         } else {
             resolve_hard_sphere_collisions(particles, particle_radius);
         }
-        if (use_gravity) apply_gravity(particles, GRAVITY_STRENGTH);
-
+    
         // 5. Finish the velocity update using the new force.
         finish_step(particles, cfg.timestep);
 
-        // 6. A condensed phase loses a whisper of energy each step so it
-        //    actually settles instead of bouncing forever.
-        if (use_gravity) apply_damping(particles, DAMPING_FACTOR);
     }
 
     writer.close();

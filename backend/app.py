@@ -22,7 +22,10 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from backend.nlp.extractor import extract_with_notes
+from backend import sweeps
+from backend.agent.orchestrator import interpret
+from backend.engine.plan import make_plan
+from backend.knowledge.checks import domain_check
 from backend.validation.schema import validate_params
 from backend.engine.runner import run_simulation, EngineRunError
 
@@ -55,6 +58,9 @@ class SimulateRequest(BaseModel):
     sigma: float | None = None
     cutoff: float | None = None
     seed: int | None = None
+    # chemistry carried over from the description (see agent/orchestrator.py):
+    components: list[dict] | None = None
+    reactive: bool | None = None
 
 
 def _non_null_dict(model: BaseModel) -> dict:
@@ -65,12 +71,25 @@ def _non_null_dict(model: BaseModel) -> dict:
 
 @app.post("/api/extract")
 def extract(request: ExtractRequest):
-    """Step 1 of the natural-language path: read the sentence, return
-    draft parameters plus a line-by-line note of how it was read. Nothing
-    is validated yet -- that happens when the caller sends the parameters
-    on to /api/validate or /api/simulate."""
-    params, notes = extract_with_notes(request.text)
-    return {"params": params, "notes": notes}
+    """Step 1 of the natural-language path: read the sentence, identify the
+    substances, look their properties up in the chemical knowledge base and
+    return draft parameters, a line-by-line account of how it was read, the
+    chemistry (`extras`) the interface sends back with later requests, and any
+    `questions` the user must answer first. Nothing is run yet."""
+    result = interpret(request.text)
+    return {"params": result["params"], "notes": result["notes"], "extras": result["extras"],
+            "questions": result["questions"]}
+
+
+def _check(request: SimulateRequest):
+    """Range checks, then domain checks against the chemical knowledge base.
+    Returns (params, plan, errors, warnings)."""
+    params, errors = validate_params(_non_null_dict(request))
+    if errors:
+        return None, None, errors, []
+    plan = make_plan(params)
+    errors, warnings = domain_check(plan)
+    return params, plan, errors, warnings
 
 
 @app.post("/api/validate")
@@ -78,17 +97,18 @@ def validate(request: SimulateRequest):
     """Checks a set of parameters without running anything. Used by the
     Review step to show a green/red status before the user commits to
     running the simulation."""
-    params, errors = validate_params(_non_null_dict(request))
+    params, plan, errors, warnings = _check(request)
     if errors:
-        return JSONResponse(status_code=400, content={"valid": False, "errors": errors})
-    return {"valid": True, "params": params.model_dump()}
+        return JSONResponse(status_code=400, content={"valid": False, "errors": errors, "warnings": warnings})
+    return {"valid": True, "params": params.model_dump(), "warnings": warnings}
 
 
 @app.post("/api/simulate")
 def simulate(request: SimulateRequest):
-    """The real thing: validate, run the C++ engine, return the actual
-    trajectory and energy data for the frontend to play back."""
-    params, errors = validate_params(_non_null_dict(request))
+    """The real thing: validate, run the molecular-dynamics engine, return the
+    actual trajectory and energy data for the frontend to play back, plus the
+    measured quantities and the scientific explanation (`report`)."""
+    params, plan, errors, warnings = _check(request)
     if errors:
         return JSONResponse(status_code=400, content={"valid": False, "errors": errors})
 
@@ -102,7 +122,34 @@ def simulate(request: SimulateRequest):
         "trajectory": result["trajectory"],
         "energy": result["energy"],
         "run_seconds": result["run_seconds"],
+        "report": result["report"],
+        "properties": result["properties"],
+        "graphs": result.get("graphs", {}),
     }
+
+
+class SweepRequest(BaseModel):
+    kind: str
+    components: list[dict] | None = None
+    temperature: float = 1.0          # reduced temperature T* of the current setup
+
+
+@app.post("/api/sweep")
+def sweep_start(request: SweepRequest):
+    """Start a 'virtual experiment' (several simulations varying one quantity) in the background."""
+    try:
+        jid = sweeps.start(request.kind, request.components, request.temperature)
+    except sweeps.SweepError as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
+    return {"id": jid}
+
+
+@app.get("/api/sweep/{jid}")
+def sweep_status(jid: str):
+    job = sweeps.get(jid)
+    if job is None:
+        return JSONResponse(status_code=404, content={"error": "unknown experiment id"})
+    return {k: job[k] for k in ("id", "kind", "status", "done", "total", "graphs", "error", "substance")}
 
 
 # --- serve the frontend itself ---

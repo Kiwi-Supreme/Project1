@@ -1,3 +1,8 @@
 fastapi
 uvicorn[standard]
 pydantic>=2
+numpy
+scipy
+# molecular-dynamics engine (LAMMPS, from Sandia).  `mpich` supplies the MPI library the pip wheel needs on Linux.
+lammps
+mpich

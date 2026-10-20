@@ -1,0 +1,359 @@
+{
+ "_meta": {
+  "units": {
+   "sigma": "angstrom",
+   "epsilon_K": "epsilon / k_B in kelvin",
+   "epsilon_kcal_mol": "kcal/mol",
+   "mass": "g/mol (u)",
+   "charge": "elementary charges"
+  },
+  "mixing_rule": "Lorentz-Berthelot: sigma_ij = (sigma_i + sigma_j)/2, eps_ij = sqrt(eps_i eps_j)"
+ },
+ "models": {
+  "lj_helium": {
+   "species": "helium",
+   "type": "lj_sphere",
+   "sites": [
+    {
+     "name": "He",
+     "element": null,
+     "mass": 4.0026,
+     "charge": 0.0,
+     "sigma_A": 2.551,
+     "epsilon_K": 10.22,
+     "epsilon_kcal_mol": 0.020309
+    }
+   ],
+   "source": "Poling et al. (2001) (as tabulated in the `chemicals` package)",
+   "selection_rule": "plausible set whose 1.31*eps/k is closest to the experimental critical temperature",
+   "rejected_sets": [],
+   "de_boer_parameter": 2.682,
+   "quantum_effects_significant": true,
+   "approximation": "single atom"
+  },
+  "lj_neon": {
+   "species": "neon",
+   "type": "lj_sphere",
+   "sites": [
+    {
+     "name": "Ne",
+     "element": null,
+     "mass": 20.1797,
+     "charge": 0.0,
+     "sigma_A": 2.6684,
+     "epsilon_K": 34.37,
+     "epsilon_kcal_mol": 0.0683
+    }
+   ],
+   "source": "Magalhães, Lito, Da Silva, and Silva (2013) (as tabulated in the `chemicals` package)",
+   "selection_rule": "plausible set whose 1.31*eps/k is closest to the experimental critical temperature",
+   "rejected_sets": [
+    {
+     "source": "Poling et al. (2001)",
+     "sigma_A": 2.82,
+     "epsilon_K": 32.8,
+     "why": "predicted Tc further from experiment"
+    }
+   ],
+   "de_boer_parameter": 0.623,
+   "quantum_effects_significant": true,
+   "approximation": "single atom"
+  },
+  "lj_argon": {
+   "species": "argon",
+   "type": "lj_sphere",
+   "sites": [
+    {
+     "name": "Ar",
+     "element": null,
+     "mass": 39.948,
+     "charge": 0.0,
+     "sigma_A": 3.4074,
+     "epsilon_K": 123.55,
+     "epsilon_kcal_mol": 0.245519
+    }
+   ],
+   "source": "Magalhães, Lito, Da Silva, and Silva (2013) (as tabulated in the `chemicals` package)",
+   "selection_rule": "plausible set whose 1.31*eps/k is closest to the experimental critical temperature",
+   "rejected_sets": [
+    {
+     "source": "Poling et al. (2001)",
+     "sigma_A": 3.542,
+     "epsilon_K": 93.3,
+     "why": "predicted Tc further from experiment"
+    }
+   ],
+   "de_boer_parameter": 0.183,
+   "quantum_effects_significant": false,
+   "approximation": "single atom"
+  },
+  "lj_krypton": {
+   "species": "krypton",
+   "type": "lj_sphere",
+   "sites": [
+    {
+     "name": "Kr",
+     "element": null,
+     "mass": 83.798,
+     "charge": 0.0,
+     "sigma_A": 3.655,
+     "epsilon_K": 178.9,
+     "epsilon_kcal_mol": 0.355511
+    }
+   ],
+   "source": "Poling et al. (2001) (as tabulated in the `chemicals` package)",
+   "selection_rule": "plausible set whose 1.31*eps/k is closest to the experimental critical temperature",
+   "rejected_sets": [
+    {
+     "source": "Magalhães, Lito, Da Silva, and Silva (2013)",
+     "sigma_A": 2.899,
+     "epsilon_K": 511.92,
+     "why": "predicted Tc further from experiment"
+    }
+   ],
+   "de_boer_parameter": 0.098,
+   "quantum_effects_significant": false,
+   "approximation": "single atom"
+  },
+  "lj_xenon": {
+   "species": "xenon",
+   "type": "lj_sphere",
+   "sites": [
+    {
+     "name": "Xe",
+     "element": null,
+     "mass": 131.293,
+     "charge": 0.0,
+     "sigma_A": 3.8575,
+     "epsilon_K": 224.23,
+     "epsilon_kcal_mol": 0.445591
+    }
+   ],
+   "source": "Magalhães, Lito, Da Silva, and Silva (2013) (as tabulated in the `chemicals` package)",
+   "selection_rule": "plausible set whose 1.31*eps/k is closest to the experimental critical temperature",
+   "rejected_sets": [
+    {
+     "source": "Poling et al. (2001)",
+     "sigma_A": 4.047,
+     "epsilon_K": 231.0,
+     "why": "predicted Tc further from experiment"
+    }
+   ],
+   "de_boer_parameter": 0.066,
+   "quantum_effects_significant": false,
+   "approximation": "single atom"
+  },
+  "lj_hydrogen": {
+   "species": "hydrogen",
+   "type": "lj_sphere",
+   "sites": [
+    {
+     "name": "H2",
+     "element": null,
+     "mass": 2.016,
+     "charge": 0.0,
+     "sigma_A": 2.827,
+     "epsilon_K": 59.7,
+     "epsilon_kcal_mol": 0.118636
+    }
+   ],
+   "source": "Poling et al. (2001) (as tabulated in the `chemicals` package)",
+   "selection_rule": "plausible set whose 1.31*eps/k is closest to the experimental critical temperature",
+   "rejected_sets": [
+    {
+     "source": "Magalhães, Lito, Da Silva, and Silva (2013)",
+     "sigma_A": 5.941,
+     "epsilon_K": 3.45,
+     "why": "implausible"
+    }
+   ],
+   "de_boer_parameter": 1.411,
+   "quantum_effects_significant": true,
+   "approximation": "whole molecule treated as one spherical Lennard-Jones site: rotation, internal vibration and multipole (e.g. quadrupole) interactions are not represented"
+  },
+  "lj_oxygen": {
+   "species": "oxygen",
+   "type": "lj_sphere",
+   "sites": [
+    {
+     "name": "O2",
+     "element": null,
+     "mass": 31.998,
+     "charge": 0.0,
+     "sigma_A": 3.2973,
+     "epsilon_K": 119.66,
+     "epsilon_kcal_mol": 0.237789
+    }
+   ],
+   "source": "Magalhães, Lito, Da Silva, and Silva (2013) (as tabulated in the `chemicals` package)",
+   "selection_rule": "plausible set whose 1.31*eps/k is closest to the experimental critical temperature",
+   "rejected_sets": [
+    {
+     "source": "Poling et al. (2001)",
+     "sigma_A": 3.467,
+     "epsilon_K": 106.7,
+     "why": "predicted Tc further from experiment"
+    }
+   ],
+   "de_boer_parameter": 0.214,
+   "quantum_effects_significant": false,
+   "approximation": "whole molecule treated as one spherical Lennard-Jones site: rotation, internal vibration and multipole (e.g. quadrupole) interactions are not represented"
+  },
+  "lj_nitrogen": {
+   "species": "nitrogen",
+   "type": "lj_sphere",
+   "sites": [
+    {
+     "name": "N2",
+     "element": null,
+     "mass": 28.014,
+     "charge": 0.0,
+     "sigma_A": 3.798,
+     "epsilon_K": 71.4,
+     "epsilon_kcal_mol": 0.141886
+    }
+   ],
+   "source": "Poling et al. (2001) (as tabulated in the `chemicals` package)",
+   "selection_rule": "plausible set whose 1.31*eps/k is closest to the experimental critical temperature",
+   "rejected_sets": [],
+   "de_boer_parameter": 0.258,
+   "quantum_effects_significant": false,
+   "approximation": "whole molecule treated as one spherical Lennard-Jones site: rotation, internal vibration and multipole (e.g. quadrupole) interactions are not represented"
+  },
+  "lj_carbon_dioxide": {
+   "species": "carbon_dioxide",
+   "type": "lj_sphere",
+   "sites": [
+    {
+     "name": "CO2",
+     "element": null,
+     "mass": 44.009,
+     "charge": 0.0,
+     "sigma_A": 3.941,
+     "epsilon_K": 195.2,
+     "epsilon_kcal_mol": 0.387902
+    }
+   ],
+   "source": "Poling et al. (2001) (as tabulated in the `chemicals` package)",
+   "selection_rule": "plausible set whose 1.31*eps/k is closest to the experimental critical temperature",
+   "rejected_sets": [
+    {
+     "source": "Magalhães, Lito, Da Silva, and Silva (2013)",
+     "sigma_A": 3.262,
+     "epsilon_K": 500.71,
+     "why": "predicted Tc further from experiment"
+    }
+   ],
+   "de_boer_parameter": 0.12,
+   "quantum_effects_significant": false,
+   "approximation": "whole molecule treated as one spherical Lennard-Jones site: rotation, internal vibration and multipole (e.g. quadrupole) interactions are not represented"
+  },
+  "lj_methane": {
+   "species": "methane",
+   "type": "lj_sphere",
+   "sites": [
+    {
+     "name": "CH4",
+     "element": null,
+     "mass": 16.043,
+     "charge": 0.0,
+     "sigma_A": 3.758,
+     "epsilon_K": 148.6,
+     "epsilon_kcal_mol": 0.295299
+    }
+   ],
+   "source": "Poling et al. (2001) (as tabulated in the `chemicals` package)",
+   "selection_rule": "plausible set whose 1.31*eps/k is closest to the experimental critical temperature",
+   "rejected_sets": [
+    {
+     "source": "Magalhães, Lito, Da Silva, and Silva (2013)",
+     "sigma_A": 3.585,
+     "epsilon_K": 167.15,
+     "why": "predicted Tc further from experiment"
+    }
+   ],
+   "de_boer_parameter": 0.238,
+   "quantum_effects_significant": false,
+   "approximation": "whole molecule treated as one spherical Lennard-Jones site: rotation, internal vibration and multipole (e.g. quadrupole) interactions are not represented"
+  },
+  "tip3p_water": {
+   "species": "water",
+   "type": "rigid_molecule_tip3p",
+   "sites": [
+    {
+     "name": "O",
+     "element": "O",
+     "mass": 15.99943,
+     "charge": -0.834,
+     "sigma_A": 3.150752406575124,
+     "epsilon_kcal_mol": 0.152
+    },
+    {
+     "name": "H",
+     "element": "H",
+     "mass": 1.007947,
+     "charge": 0.417,
+     "sigma_A": 1.0,
+     "epsilon_kcal_mol": 0.0
+    }
+   ],
+   "bond": {
+    "r0_A": 0.9572,
+    "k_kcal_mol_A2": 553.0
+   },
+   "angle": {
+    "theta0_deg": 104.5199999997437,
+    "k_kcal_mol_rad2": 99.99999999999999
+   },
+   "constraint": "SHAKE (rigid water)",
+   "electrostatics": "particle-mesh Ewald (PPPM)",
+   "source": "TIP3P: Jorgensen, Chandrasekhar, Madura, Impey & Klein, J. Chem. Phys. 79, 926 (1983); values read from OpenMM app/data/tip3p.xml",
+   "valid_temperature_K": [
+    250,
+    400
+   ]
+  },
+  "ion_sodium_ion": {
+   "species": "sodium_ion",
+   "type": "ion_sphere",
+   "sites": [
+    {
+     "name": "Na+",
+     "element": "Na",
+     "mass": 22.99,
+     "charge": 1.0,
+     "sigma_A": 2.439280690268249,
+     "epsilon_kcal_mol": 0.0874393
+    }
+   ],
+   "source": "Joung & Cheatham, J. Phys. Chem. B 112, 9020 (2008), TIP3P-compatible set; values read from OpenMM app/data/amber14/tip3p.xml",
+   "valid_with": "tip3p_water"
+  },
+  "ion_chloride_ion": {
+   "species": "chloride_ion",
+   "type": "ion_sphere",
+   "sites": [
+    {
+     "name": "Cl-",
+     "element": "Cl",
+     "mass": 35.45,
+     "charge": -1.0,
+     "sigma_A": 4.477656957373345,
+     "epsilon_kcal_mol": 0.035591
+    }
+   ],
+   "source": "Joung & Cheatham, J. Phys. Chem. B 112, 9020 (2008), TIP3P-compatible set; values read from OpenMM app/data/amber14/tip3p.xml",
+   "valid_with": "tip3p_water"
+  }
+ },
+ "reaxff": {
+  "file": "ffield.reax.cho",
+  "elements": [
+   "H",
+   "C",
+   "O"
+  ],
+  "source": "Chenoweth, van Duin & Goddard, J. Phys. Chem. A 112, 1040 (2008); file distributed with LAMMPS",
+  "timestep_fs": 0.25
+ }
+}
